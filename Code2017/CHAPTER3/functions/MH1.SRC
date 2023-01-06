@@ -1,0 +1,1224 @@
+new;
+cls;
+library pgraph;
+dlibrary Y:\Users\146431\SVOL2\gauss\investigatesign\matlabsimple2lagsLOG\Release\matlabsimple2lags; 
+spath = "Y:\\Users\\146431\\SVOL2\\gauss\\investigatesign\\datas";
+//load data
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\datain.dat";
+data0=loadd(a);
+///tranform data
+data=(logdif(data0[.,1])*100)~(logdif(data0[.,4:5])*100)~data0[.,6]/4;
+data=packr(data);
+REPS=25000;
+BURN=15000;
+skip=2;
+repindex=seqa(burn+1,skip,(reps-burn)/skip);
+repindex1=seqa(1,500,(REPS)/500);
+
+T0=40;
+N=cols(data);
+L=2;   //number of lags in the VAR
+Y=data;
+X=lagn(Y,1)~lagn(Y,2)~ones(rows(Y),1);
+Y=Y[T0+3:rows(Y),.];
+X=X[T0+3:rows(X),.];
+T=rows(X);
+//load starting values
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\initial1.dat";
+betaout=loadd(a);
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\initial2.dat";
+gout=loadd(a)';
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\initial3.dat";
+dout=loadd(a);
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\initial4.dat";
+b00=loadd(a);
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\initial5.dat";
+pattern=loadd(a);
+a="Y:\\Users\\146431\\svol2\\gauss\\investigatesign\\start\\initial6.dat";
+varpriors=loadd(a);
+muP=varpriors[.,1];
+sigmaP=varpriors[.,2];
+deltaP=varpriors[.,3];
+deltap[5:8]=ones(4,1).*0.97;
+
+lamda1=0.01;  //tightness prior on the AR coefficients
+lamda3=1;   //tightness of prior on higher lags 
+lamda4=1;  //tightness of prior on the constant term
+lamda5=0.001;
+
+
+V=5;
+DELTA=0.1|0.1|0.1|0.1|1e-005*ones(6,1);
+NPART=500;
+NN=8;
+{betaprior,varprior}=getpriormatrices(deltaP,sigmaP,lamda1,lamda3,lamda4,lamda5,NN,L);
+
+P00=eye(rows(b00)).*(ones(4,1).*0.1|ones(6,1).*0.000000000001|ones(4,1).*0.1);
+
+THETA0=betaout|gout|dout;
+
+
+
+
+//initial blocks
+npar=rows(theta0);
+index=seqa(1,1,NPAR);
+
+block1=THETA0[1:64];
+blockid1=index[1:64];
+
+block2=gout;
+blockid2=index[rows(betaout)+1:rows(betaout)+rows(gout)];
+block3=dout;
+blockid3=index[rows(betaout)+rows(gout)+1:npar];
+
+K1=0.001;
+K2=0.001;
+K3=0.000001;
+//blocks
+bold1=block1;
+pblock1=eye(rows(bold1))*K1;
+
+bold2=block2;
+pblock2=eye(rows(bold2))*K2;
+
+bold3=block3;
+pblock3=eye(rows(bold3))*K3;
+
+
+
+
+
+
+
+
+	
+	
+check=-1;
+do while check<0;
+	part00=rndn(NPART,10)*chol(P00[1:10,1:10]);
+part0c=zeros(NPART,14);
+part0c[.,1:10]=part00;
+partallc=rndn(NPART,T*10);
+uniformbigc=rndu(NPART,T);
+tstart=hsec;
+{lik0,beta0,problem0}=getposterior(theta0); 
+tend=hsec;
+etstr(tend-tstart);
+if problem0==0;
+	check=10;
+endif;
+endo;
+naccept1=0;
+naccept2=0;
+naccept3=0;
+pold1=lik0;
+pold2=lik0;
+pold3=lik0;
+tstart=hsec;
+i=1;
+do until i>=reps+1;
+////////block metropolis algorithm////////////////////
+bnew1=bold1+(rndn(1,rows(bold1))*pblock1)';
+bnew2=bold2+(rndn(1,rows(bold2))*pblock2)';
+bnew3=bold3+(rndn(1,rows(bold3))*pblock3)';
+u1=rndu(1,1); u2=rndu(1,1);u3=rndu(1,1);
+
+
+threadbegin;
+{pnew1,betanew1,problem1}=getposteriorblock1(bnew1,bold2,bold3,blockid1,blockid2,blockid3,index);
+threadend;
+threadbegin;
+{pold1,betaold1,problemold1}=getposteriorblock1old(bold1,bold2,bold3,blockid1,blockid2,blockid3,index);
+threadend;
+
+/////////////////////////////////////////////////////////////////block2/////////////////////////////////////////////////
+threadbegin;
+{pnew2,betanew2,problem2}=getposteriorblock2(bnew2,bold1,bold3,blockid1,blockid2,blockid3,index);
+threadend;
+threadbegin;
+{pold2,betaold2,problemold2}=getposteriorblock2old(bold2,bold1,bold3,blockid1,blockid2,blockid3,index);
+threadend;
+//////////////////////////////////////////////////////////block3///////////////////////////////////////////////////////
+threadbegin;
+{pnew3,betanew3,problem3}=getposteriorblock3(bnew3,bold1,bold2,blockid1,blockid2,blockid3,index);
+threadend;
+threadbegin;
+{pold3,betaold3,problemold3}=getposteriorblock3old(bold3,bold1,bold2,blockid1,blockid2,blockid3,index);
+threadend;
+threadjoin;
+
+/////parameter update
+       /////block1
+	   if problem1==1;
+		   accept1=0;
+	   else;
+		   accept1=exp(pnew1-pold1);
+		  endif; 
+		   if u1<accept1;
+        bold1=bnew1;
+        pold1=pnew1;
+        betaold1=betanew1;
+        naccept1=naccept1+1;
+	endif;
+	///////block2
+	if problem2==1;
+		   accept2=0;
+	   else;
+		   accept2=exp(pnew2-pold2);
+		 endif;  
+		   if u2<accept2;
+        bold2=bnew2;
+        pold2=pnew2;
+        betaold2=betanew2;
+        naccept2=naccept2+1;
+	endif;
+	///////block3
+	if problem3==1;
+		   accept3=0;
+	   else;
+		   accept3=exp(pnew3-pold3);
+		  endif; 
+		   if u3<accept3;
+        bold3=bnew3;
+        pold3=pnew3;
+        betaold3=betanew3;
+        naccept3=naccept3+1;
+	endif;
+	arate1=(naccept1/i);
+	arate2=(naccept2/i);
+	arate3=(naccept3/i);
+	
+	if i>500;
+		if arate1<0.21;
+			pblock1=pblock1*0.99;
+		elseif arate1>0.41;
+		pblock1=pblock1*1.01;
+	endif;	
+	if arate2<0.21;
+			pblock2=pblock2*0.99;
+		elseif arate2>0.41;
+		pblock2=pblock2*1.01;
+	endif;
+    if arate3<0.21;
+			pblock3=pblock3*0.99;
+		elseif arate3>0.41;
+		pblock3=pblock3*1.01;
+	endif;		
+endif;
+
+/////write current state ////
+if sumc(i.==repindex1)>0;
+save path = ^spath i,bold1,betaold1,pold1,bold2,betaold2,pold2,bold3,betaold3,pold3,pblock1,pblock2,pblock3,naccept1,naccept2,naccept3;	
+endif;
+
+
+if i==burn;
+	let vnames=i p y;
+closeall;
+create fh1=states1 with ^vnames,npar,8; 
+create fh2=post1 with ^vnames,3,8;
+create fh3=statesx1 with ^vnames,14,8;
+closeall;
+open fh1=states1 for update;
+open fh2=post1 for update;
+open fh3=statesx1 for update;
+call writer(fh1,(bold1|bold2|bold3)');
+call writer(fh2,(pold1~pold2~pold3));
+call writer(fh3,betaold1);
+closeall;
+endif;
+
+if i>burn;
+if sumc(i.==repindex)>0;	
+closeall;
+open fh1=states1 for append;
+open fh2=post1 for append;
+open fh3=statesx1 for append;
+call writer(fh1,(bold1|bold2|bold3)');
+call writer(fh2,(pold1~pold2~pold3));
+call writer(fh3,betaold1);
+closeall;
+endif;
+endif;
+
+	
+	i=i+1;
+endo;
+tend=hsec;
+etstr(tend-tstart);
+
+
+////////////////procedures////////////////////////////////////
+
+proc(2)=getpriormatrices(rhomat,smat,lamda1,lamda3,lamda4,lamda5,NN,L);
+	local pb0,i,S0,tempid,ix,sigma1,sigma2,sigma3,sigma4,sigma5,sigma6,sigma7,sigma8;
+	pb0=zeros(NN*L+1,NN);
+	i=1;
+	do until i>=nn+1;
+	pb0[i,i]=rhomat[i];
+	i=i+1;
+	endo;
+	pb0=vec(pb0);
+	S0=eye(NN*(NN*L+1))*10000;
+	sigma1=smat[1];sigma2=smat[2];sigma3=smat[3];sigma4=smat[4];
+	sigma5=smat[5];sigma6=smat[6];sigma7=smat[7];sigma8=smat[8];
+	////normal wishart prior
+	///eq 1
+	S0[1,1]=lamda1^2;
+    S0[2,2]=((sigma1*lamda1)/sigma2)^2;
+	S0[3,3]=((sigma1*lamda1)/sigma3)^2;
+	S0[4,4]=((sigma1*lamda1)/sigma4)^2;
+	S0[5,5]=((sigma1*lamda1)/sigma5)^2;
+	S0[6,6]=((sigma1*lamda1)/sigma6)^2;
+	S0[7,7]=((sigma1*lamda1)/sigma7)^2;
+	S0[8,8]=((sigma1*lamda1)/sigma8)^2;
+	S0[9,9]=(lamda1/(2^lamda3))^2;
+	S0[10,10]=((sigma1*lamda1)/((2^lamda3)*sigma2))^2;
+	S0[11,11]=((sigma1*lamda1)/((2^lamda3)*sigma3))^2;
+	S0[12,12]=((sigma1*lamda1)/((2^lamda3)*sigma4))^2;
+	S0[13,13]=((sigma1*lamda1)/((2^lamda3)*sigma5))^2;
+	S0[14,14]=((sigma1*lamda1)/((2^lamda3)*sigma6))^2;
+	S0[15,15]=((sigma1*lamda1)/((2^lamda3)*sigma7))^2;
+	S0[16,16]=((sigma1*lamda1)/((2^lamda3)*sigma8))^2;
+	S0[17,17]=(sigma1*lamda4)^2;
+	////eq2
+	S0[18,18]=((sigma2*lamda1)/sigma1)^2;
+	S0[19,19]=lamda1^2;
+	S0[20,20]=((sigma2*lamda1)/sigma3)^2;
+	S0[21,21]=((sigma2*lamda1)/sigma4)^2;
+	S0[22,22]=((sigma2*lamda1)/sigma5)^2;
+	S0[23,23]=((sigma2*lamda1)/sigma6)^2;
+	S0[24,24]=((sigma2*lamda1)/sigma7)^2;
+	S0[25,25]=((sigma2*lamda1)/sigma8)^2;
+	S0[26,26]=((sigma2*lamda1)/((2^lamda3)*sigma1))^2;
+	S0[27,27]=(lamda1/(2^lamda3))^2;
+	S0[28,28]=((sigma2*lamda1)/((2^lamda3)*sigma3))^2;
+	S0[29,29]=((sigma2*lamda1)/((2^lamda3)*sigma4))^2;
+	S0[30,30]=((sigma2*lamda1)/((2^lamda3)*sigma5))^2;
+	S0[31,31]=((sigma2*lamda1)/((2^lamda3)*sigma6))^2;
+	S0[32,32]=((sigma2*lamda1)/((2^lamda3)*sigma7))^2;
+	S0[33,33]=((sigma2*lamda1)/((2^lamda3)*sigma8))^2;
+	S0[34,34]=(sigma2*lamda4)^2;
+	//////eq3
+	S0[35,35]=((sigma3*lamda1)/sigma1)^2;
+	S0[36,36]=((sigma3*lamda1)/sigma2)^2;
+	S0[37,37]=lamda1^2;
+	S0[38,38]=((sigma3*lamda1)/sigma4)^2;
+	S0[39,39]=((sigma3*lamda1)/sigma5)^2;
+	S0[40,40]=((sigma3*lamda1)/sigma6)^2;
+	S0[41,41]=((sigma3*lamda1)/sigma7)^2;
+	S0[42,42]=((sigma3*lamda1)/sigma8)^2;
+	S0[43,43]=((sigma3*lamda1)/((2^lamda3)*sigma1))^2;
+	S0[44,44]=((sigma3*lamda1)/((2^lamda3)*sigma2))^2;
+	S0[45,45]=(lamda1/(2^lamda3))^2;
+	S0[46,46]=((sigma3*lamda1)/((2^lamda3)*sigma4))^2;
+	S0[47,47]=((sigma3*lamda1)/((2^lamda3)*sigma5))^2;
+	S0[48,48]=((sigma3*lamda1)/((2^lamda3)*sigma6))^2;
+	S0[49,49]=((sigma3*lamda1)/((2^lamda3)*sigma7))^2;
+	S0[50,50]=((sigma3*lamda1)/((2^lamda3)*sigma8))^2;
+	S0[51,51]=(sigma3*lamda4)^2;
+	////eq 4
+	S0[52,52]=((sigma4*lamda1)/sigma1)^2;
+	S0[53,53]=((sigma4*lamda1)/sigma2)^2;
+	S0[54,54]=((sigma4*lamda1)/sigma3)^2;
+	S0[55,55]=lamda1^2;
+	S0[56,56]=((sigma4*lamda1)/sigma5)^2;
+	S0[57,57]=((sigma4*lamda1)/sigma6)^2;
+	S0[58,58]=((sigma4*lamda1)/sigma7)^2;
+	S0[59,59]=((sigma4*lamda1)/sigma8)^2;
+	
+	S0[60,60]=((sigma4*lamda1)/((2^lamda3)*sigma1))^2;
+	S0[61,61]=((sigma4*lamda1)/((2^lamda3)*sigma2))^2;
+	S0[62,62]=((sigma4*lamda1)/((2^lamda3)*sigma3))^2;
+	S0[63,63]=(lamda1/(2^lamda3))^2;
+	S0[64,64]=((sigma4*lamda1)/((2^lamda3)*sigma5))^2;
+	S0[65,65]=((sigma4*lamda1)/((2^lamda3)*sigma6))^2;
+	S0[66,66]=((sigma4*lamda1)/((2^lamda3)*sigma7))^2;
+	S0[67,67]=((sigma4*lamda1)/((2^lamda3)*sigma8))^2;
+	S0[68,68]=(sigma4*lamda4)^2;
+	
+	
+	tempid=indexcat(pb0,0.97);
+	ix=1;do until ix>=rows(tempid)+1;
+		S0[tempid[ix],tempid[ix]]=lamda5;
+		ix=ix+1;
+		endo;
+retp(pb0,s0);
+endp;
+
+
+
+
+
+
+proc(3)=getposteriorblock1(bnew1,bold2,bold3,blockid1,blockid2,blockid3,index);
+	local betain,check1,likout,betaout,check2,problemout,statesout,theta0,gout,dout;
+	problemout=0;
+	///extract arguments
+	
+	 ////extract parameters
+	 theta0=arrangeblocks1(bnew1,bold2,bold3,blockid1,blockid2,blockid3,index);
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfix(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+ endp;
+ 
+ 
+ proc(3)=getposteriorblock2(bnew1,bold1,bold3,blockid1,blockid2,blockid3,index);
+	local betain,check1,likout,betaout,check2,problemout,statesout,theta0,gout,dout;
+	problemout=0;
+	///extract arguments
+	
+	 ////extract parameters
+	 theta0=arrangeblocks2(bnew1,bold1,bold3,blockid1,blockid2,blockid3,index);
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfixcopy1(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+ endp;
+ 
+proc(3)=getposteriorblock3(bnew1,bold1,bold2,blockid1,blockid2,blockid3,index);
+	local betain,check1,likout,betaout,check2,problemout,statesout,theta0,gout,dout;
+	problemout=0;
+	///extract arguments
+	
+	 ////extract parameters
+	 theta0=arrangeblocks3(bnew1,bold1,bold2,blockid1,blockid2,blockid3,index);
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfixcopy2(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+ endp;
+ 
+
+ 
+ 
+
+proc(3)=getposterior(theta0);
+	local betain,check1,likout,betaout,check2,problemout,statesout,gout,dout;
+	problemout=0;
+	
+	 
+	 ////extract parameters
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfix(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+	 endp;
+
+
+proc(10)=slice(x,t);
+	local x1,x2,x3,x4,x5,x6,x7,x8,x9,x10;
+	x1=x[.,1:t]';
+	x2=x[.,t+1:t*2]';
+	x3=x[.,(t*2)+1:t*3]';
+	x4=x[.,(t*3)+1:t*4]';
+	x5=x[.,(t*4)+1:t*5]';
+	x6=x[.,(t*5)+1:t*6]';
+	x7=x[.,(t*6)+1:t*7]';
+	x8=x[.,(t*7)+1:t*8]';
+	x9=x[.,(t*8)+1:t*9]';
+	x10=x[.,(t*9)+1:t*10]';
+	retp(x1,x2,x3,x4,x5,x6,x7,x8,x9,x10);
+	endp;
+
+
+proc(1)=gammaln(x);
+	local temp;
+	temp=lnfact(x-1);
+retp( temp);
+endp;
+proc(1)=gampdf(X,A,B);
+local out,constant;
+constant=-A*ln(B)-gammaln(A);
+out=(constant)+((A-1)*ln(X))+(-X/B);
+retp(out);
+endp;
+
+proc(1)=gampdf1(v,delta,h);
+local X,A,B,Y;
+X=h;
+A=v/2;
+B=2/delta;
+Y = (gampdf(X,A,B));
+retp(Y);
+endp;
+
+proc(1)=logdet(x);
+local a,out;
+a=cholx(x);
+out=sumc(ln(diag(a))*2);
+retp(out);
+endp;
+
+
+proc(1)=multivariatenormal(x,mu,sigma);
+local isigma,res,expterm,constant,k,out;
+k=rows(x);
+res=x-mu;
+isigma=invpdx(sigma);
+expterm=-0.5*res'isigma*res;
+constant=ln(1/(2*(pi^k/2)))-0.5*logdet(sigma);
+
+out=constant+expterm;
+retp(out);
+endp;
+
+proc(1)=invpdx(x);
+local out;
+trap 1;
+out=invpd(x);
+if scalerr(out);
+out=inv(x);
+endif;
+trap 0;
+retp(out);
+endp;
+
+proc(1)=cholx(x);
+//procedure for cholx decomposition that checks for positive definitiness
+local out,xin,n,xout,info,cholfortran;
+cholfortran=0;
+if cholfortran==1;
+////prepare inputs
+xin=x';
+n=cols(x);
+xout=zeros(n,n);
+info=0;
+dllcall fortranchol(xin,N,xout,info);
+out=xout';
+if info ne 0;
+out=sqrtm2(x);
+endif;
+else;
+trap 1;
+out=chol(x);
+if scalerr(out);
+out=sqrtm2(x);
+endif;
+trap 0;
+endif;
+retp(out);
+endp;
+
+
+
+proc(1)=sqrtm2(x);
+local u,s,v,out;
+{ u,s,v } = svd1(x);
+out=u*sqrt(s)*v';
+retp(real(out));
+endp;
+
+proc(1)=logdif(x);
+	local temp;
+	temp=ln(x)-lagn(ln(x),1);
+	retp(temp);
+endp;
+
+proc(1)=arrange(betaout,NN,L,pattern);
+	local betainx,kk,k,betain;
+betainx=zeros((NN*L+1)*NN,1);
+kk=1;
+	k=1;
+	do until k>=rows(pattern)+1;
+    if pattern[k]==1;
+        betainx[k]=betaout[kk];
+        kk=kk+1;
+    endif;
+	k=k+1;
+endo;
+betain=reshape(betainx,NN,NN*L+1)';
+retp(betain);
+endp;
+
+proc(1)=arrangeblocks1(theta0x,block2,block3,blockid1,blockid2,blockid3,index);
+	local theta0,i,id,temp,e1,e2,e3;
+	THETA0={};
+
+i=1;
+do until i>=rows(index)+1;
+    id=index[i];
+    e1=blockid1.==id;
+    e2=blockid2.==id;
+    e3=blockid3.==id;
+   if sumc(e1)>0;
+	   temp=selif(THETA0x,blockid1.==id);
+   elseif sumc(e2)>0;
+	   temp=selif(block2,blockid2.==id);
+   elseif sumc(e3)>0;
+      
+       temp=selif(block3,blockid3.==id);
+   endif;
+   THETA0=THETA0|temp;
+   i=i+1;
+endo;
+retp(THETA0);
+endp;
+
+
+proc(1)=arrangeblocks2(theta0x,block1,block3,blockid1,blockid2,blockid3,index);
+	local theta0,i,id,temp,e1,e2,e3;
+	THETA0={};
+
+i=1;
+do until i>=rows(index)+1;
+    id=index[i];
+    e1=blockid1.==id;
+    e2=blockid2.==id;
+    e3=blockid3.==id;
+   if sumc(e1)>0;
+	   temp=selif(block1,blockid1.==id);
+	   
+   elseif sumc(e2)>0;
+	   temp=selif(THETA0x,blockid2.==id);
+   elseif sumc(e3)>0;
+      
+       temp=selif(block3,blockid3.==id);
+   endif;
+   THETA0=THETA0|temp;
+   i=i+1;
+endo;
+retp(THETA0);
+endp;
+
+proc(1)=arrangeblocks3(theta0x,block1,block2,blockid1,blockid2,blockid3,index);
+	local theta0,i,id,temp,e1,e2,e3;
+	THETA0={};
+
+i=1;
+do until i>=rows(index)+1;
+    id=index[i];
+    e1=blockid1.==id;
+    e2=blockid2.==id;
+    e3=blockid3.==id;
+   if sumc(e1)>0;
+	   temp=selif(block1,blockid1.==id);
+	   
+   elseif sumc(e2)>0;
+	   temp=selif(block2,blockid2.==id);
+	   
+   elseif sumc(e3)>0;
+      temp=selif(THETA0x,blockid3.==id);
+       
+   endif;
+   THETA0=THETA0|temp;
+   i=i+1;
+endo;
+retp(THETA0);
+endp;
+
+
+
+
+proc(1)=rootcheck(b,n,l);
+	local bsmall,index,temp,check1,check2,check3,check4,check5,checkall;
+	temp=reshape(b,n,(n*l)+1)';
+	
+	index=1~2~3~4~9~10~11~12~17;
+	bsmall=vec(temp[index,1:4]);
+	
+	check1=rootcheckx(bsmall,4,2);
+	check2=abs(temp[5,5])>1;
+	check3=abs(temp[6,6])>1;
+    check4=abs(temp[7,7])>1;
+	check5=abs(temp[8,8])>1;
+	checkall=check1+check2+check3+check4+check5;
+	
+	retp(checkall);
+	endp;
+
+
+
+/////////////////////////////////////
+proc(1)=rootcheckx(b,n,l);
+//Procedure to Check VAR Stability
+local bb,fb,fa,f,lamda,e;
+//step 1 form F matrix
+bb=trimr(reshape(b,n,(n*l)+1)',0,1)';
+fb=eye((n*l));
+fa=eye(n);
+fb=fa.*.fb;
+f=bb|fb[.,1:(n*l)];
+f=f[1:(n*l),.];
+trap 1;
+lamda=abs(eig(f));
+trap 0;
+if ismiss(lamda)==1;
+e=1;
+else;
+e=lamda .gt 1;
+e=sumc(e); endif;
+retp(e);
+endp;
+/////////////////////////////////////////////
+proc(1)=setdummies(lamda,mu,rho,ss,muC,mm,N,L);
+
+ local yd1,xd1,yd,xd,jp;
+
+ ///dummy variables for minnesota prior
+ yd1={};
+ xd1={};
+ yd={};
+ xd={};
+ if lamda>0;
+
+yd1=diags(ss.*rho)./lamda|(zerosx(N*(L-1),N))|diags(ss)|zerosx(1,N);
+jp=diags(seqa(1,1,L)');
+xd1=(jp.*.(diags(ss)./lamda))~zerosx(N*L,1)|zerosx(N,N*L)~zerosx(N,1)| zerosx(1,N*L)~muC;
+endif;
+	if mu>0;
+	
+///dummy observations for sum of coefficients
+yd=diags((mm.*rho)./mu);
+xd=(seqa(1,1,L)'.*.diags((mm.*rho)./mu))~zerosx(N,1);
+endif;
+
+
+retp ((yd1|yd)~(xd1|xd));
+endp;
+
+
+proc(1)=zerosx(r,c);
+local out;
+if r>0 and c>0;
+out=zeros(r,c);
+else;
+out={};
+endif;
+retp(out);
+endp;
+
+proc(1)=diags(x);
+local out,n;
+n=rows(x);
+if n==1;
+x=x';
+n=rows(x);
+endif;
+
+out=diagrv(zeros(n,n),x);
+retp(out);
+endp;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+proc(3)=getposteriorblock1old(bnew1,bold2,bold3,blockid1,blockid2,blockid3,index);
+	local betain,check1,likout,betaout,check2,problemout,statesout,theta0,gout,dout;
+	problemout=0;
+	///extract arguments
+	
+	 ////extract parameters
+	 theta0=arrangeblocks1(bnew1,bold2,bold3,blockid1,blockid2,blockid3,index);
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfixold(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+ endp;
+ 
+ 
+ proc(3)=getposteriorblock2old(bnew1,bold1,bold3,blockid1,blockid2,blockid3,index);
+	local betain,check1,likout,betaout,check2,problemout,statesout,theta0,gout,dout;
+	problemout=0;
+	///extract arguments
+	
+	 ////extract parameters
+	 theta0=arrangeblocks2(bnew1,bold1,bold3,blockid1,blockid2,blockid3,index);
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfixcopy1old(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+ endp;
+ 
+proc(3)=getposteriorblock3old(bnew1,bold1,bold2,blockid1,blockid2,blockid3,index);
+	local betain,check1,likout,betaout,check2,problemout,statesout,theta0,gout,dout;
+	problemout=0;
+	///extract arguments
+	
+	 ////extract parameters
+	 theta0=arrangeblocks3(bnew1,bold1,bold2,blockid1,blockid2,blockid3,index);
+	 betain=arrange(theta0[1:64],NN,L,pattern);
+	 check1=rootcheck(vec(betain),NN,L);
+	 check2=sumc(THETA0[65:rows(THETA0)] .le 0);
+	 if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=0;
+	 retp(likout,statesout,problemout);
+ else;
+	 
+	 gout=THETA0[65:68];
+     dout=THETA0[69:rows(THETA0)];
+	 
+	 ////prepare inputs for fortran
+	 //likelihoodfix(yc,xc,betainc,ginc,dinc,npartc,tc,likc,betaoutc,problem1c,b00c,p00c,part0c,part1c,part2c,part3c,part4c,part5c,part6c,part7c,part8c,part9c,part10c,uniformbigc,ESSc,index00c)
+local yf,xf,betainf,ginf,dinf,tf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,
+part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f,betaoutf,likoutf;
+      yf=Y';
+	  xf=X';
+	  betainf=betain';
+	  ginf=gout;
+	  dinf=dout';
+	  tf=rows(Y);
+	  likoutf=0;
+	  betaoutf=zeros(14,tf);
+	  problemf=0;
+	  b00f=B00';
+	  p00f=p00';
+	  part0f=part0c';
+	  {part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f}=slice(partallc,tf);
+	  uniformbigf=uniformbigc';
+	  ESSF=zeros(1,TF);
+	  index00f=zeros(1,NPART);
+	  
+	   ///call fortran
+	   dllcall likelihoodfixcopy2old(yf,xf,betainf,ginf,dinf,npart,tf,likoutf,betaoutf,problemf,b00f,p00f,part0f,part1f,part2f,part3f,part4f,part5f,part6f,part7f,part8f,part9f,part10f,uniformbigf,ESSf,index00f);
+	   check1=isinfnanmiss(likoutf)==1;
+	   check2=problemf==1;
+	   if (check1+check2)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+	    retp(likout,statesout,problemout);
+	else;
+		
+	//evaluate priors	
+	local dataD,yD,Xd,td,pb0,pb1,e0,S0,priorB,logprior1,m,varparam,tempid,ix;
+	priorB=multivariatenormal(vec(betain),betaprior,varprior);
+	logprior1=0;
+  varparam=gout|dout;
+  m=1;
+  do until m>=rows(varparam)+1;
+      logprior1=logprior1+gampdf1(V,DELTA[m],1/varparam[m]);
+	  m=m+1;
+  endo;
+    likout=likoutf+priorB+logprior1;
+	problemout=0;
+		 statesout=betaoutf';
+	check1=isinfnanmiss(likout)==1;
+	   if (check1)>0;
+		 likout=-1000000;
+		 problemout=1;
+		 statesout=betaoutf';
+		 retp(likout,statesout,problemout);
+	 endif;
+	 endif;
+	 endif;
+	 
+	 retp(likout,statesout,problemout);
+ endp;
+ 
+
+
+
+
+
+

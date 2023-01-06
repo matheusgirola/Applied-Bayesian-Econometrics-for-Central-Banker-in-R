@@ -1,0 +1,93 @@
+################################################################################
+# Carter and Kohn algorithm for State Space model with time varying coefficients
+# following Blake and Mumtaz, Chapter 3
+# 
+# This is what they called "example2.m"
+# 
+# Model to estimate: Y(t) = Beta(t)*X(t) + e1
+#                    Beta(t) = mu + F*Beta(t-1) + e2
+# Where the data is artificially generated
+################################################################################
+
+# Generate artifical data
+t = 500 
+Q = 0.001
+R = 0.01
+F = 1; mu =0 # These are fixed
+e1 = rnorm(t)*sqrt(R)
+e2 = rnorm(t)*sqrt(Q)
+Beta = matrix(0, nrow = t)
+Y = matrix(0, nrow = t)
+X = rnorm(t)
+for (j in 2:t){
+  Beta[j, ] = Beta[(j-1), ] + e2[j]       # transition equation
+  Y[j, ] =  X[j]%*%t(Beta[j, ]) + e1[j] # observation equation
+}
+
+# Start of the Kalman Filter ###################################################
+# Step 1: set up matrices for the Kalman Filter
+beta00 = matrix(0)               # State variable b[0|0]
+p00 = 1                          # variance of the state variable p[0|0]
+beta_tt = c()                    # will hold the filtered state variable
+ptt = array(0, dim = c(t, 1, 1)) # will hold its variance
+
+# Initialize state variable
+beta11 = beta00 # b[t-1|t-1]
+p11 = p00       # p[t-1|t-1]
+
+#Loop from period 1 to end of the sample
+for (i in 1:t){
+  x = X[i]
+  
+  # Look at equations 3.9 on the book
+  # Prediction
+  beta10 = mu + beta11%*%F
+  p10 = F%*%p11%*%t(F) + Q
+  yhat = t(x%*%t(beta10))
+  eta = Y[i, ] - yhat
+  feta = (x%*%p10%*%t(x)) + R
+  
+  # Updating
+  K = (p10%*%t(x))%*%solve(feta) # Kalman gain
+  beta11 = t(t(beta10) + K%*%t(eta))
+  p11 = p10 - K%*%(x%*%p10)
+  
+  ptt[i, , ] =  p11
+  beta_tt = rbind(beta_tt, beta11)
+}
+# End of the Kalman Filter #####################################################
+
+# Carter and Kohn Backward Recursion algortihm to compute the mean and variance
+# of the distribution of the state vector
+
+beta2 = matrix(0, nrow = t) # will hold the draw of the state variable
+wa = rnorm(t)
+
+# period T
+i = t                     
+p00 = drop(ptt[i, , ]) #p[T|T]
+beta2[i, ] =  beta_tt[i, ] + (wa[i]%*%chol(p00)) # beta[T|T]
+
+# period T-1 to 1
+for (i in (t-1):1){
+  pt = drop(ptt[i, , ])
+  bm = beta_tt[i, ] + t(pt%*%t(F)%*%solve(F%*%pt%*%t(F) + Q)%*%
+                         +t(beta2[i + 1,] - mu - beta_tt[i, ]%*%t(F)))
+  pm = pt - pt%*%t(F)%*%solve(F%*%pt%*%t(F) + Q)%*%F%*%pt
+  beta2[i, ] = bm + (wa[i]%*%chol(pm))
+}
+
+# Plot both the artificial data, Kalman Filter estimation and Carter Kohn
+g <- ggplot()
+g <- g + geom_line(aes(x = (1:500), y = Beta, colour = "Data"))
+g <- g + geom_line(aes(x = (1:500), y = beta_tt, colour = "Kalman Filter"))
+g <- g + geom_line(aes(x = (1:500), y = beta2, colour = "Carter and Kohn"))
+g <- g + xlab("Period t") + ylab("Coefficients") + theme(legend.title = element_blank())
+g
+
+
+
+
+
+
+

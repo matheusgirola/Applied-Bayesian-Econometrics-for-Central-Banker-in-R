@@ -1,0 +1,237 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>example2</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2011-02-28"><meta name="m-file" content="example2"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput">clear
+<span class="comment">%generate data for a state space model</span>
+<span class="comment">%Y=Beta[t]*X+e1</span>
+<span class="comment">%Beta[t]=mu+F*Beta[t-1]+e2</span>
+<span class="comment">%var(e1)=R</span>
+<span class="comment">%var(e2)=Q</span>
+t=500;
+Q=0.001;
+R=0.01;
+F=1;  <span class="comment">%these are fixed</span>
+mu=0;  <span class="comment">%these are fixed</span>
+e1=randn(t,1)*sqrt(R);
+e2=randn(t,1)*sqrt(Q);
+Beta=zeros(t,1);
+Y=zeros(t,1);
+X=randn(t,1);
+<span class="keyword">for</span> j=2:t
+    Beta(j,:)=Beta(j-1,:)+e2(j,:);
+    Y(j)=X(j,:)*Beta(j,:)'+e1(j);
+<span class="keyword">end</span>
+
+
+
+
+
+<span class="comment">%%Step 1 Set up matrices for the Kalman Filter</span>
+
+beta0=zeros(1,1);   <span class="comment">%state variable  b[0/0]</span>
+p00=1;          <span class="comment">%variance of state variable p[0/0]</span>
+beta_tt=[];          <span class="comment">%will hold the filtered state variable</span>
+ptt=zeros(t,1,1);    <span class="comment">% will hold its variance</span>
+
+<span class="comment">%initialise the state variable</span>
+beta11=beta0;
+p11=p00;
+
+
+
+<span class="keyword">for</span> i=1:t
+    x=X(i);
+
+    <span class="comment">%Prediction</span>
+beta10=mu+beta11*F';
+p10=F*p11*F'+Q;
+yhat=(x*(beta10)')';
+eta=Y(i,:)-yhat;
+feta=(x*p10*x')+R;
+<span class="comment">%updating</span>
+K=(p10*x')*inv(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+
+ptt(i,:,:)=p11;
+beta_tt=[beta_tt;beta11];
+
+<span class="keyword">end</span>
+<span class="comment">%%%%%%%%%%%end of Kalman Filter%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%</span>
+
+
+<span class="comment">% Carter and Kohn Backward recursion to calculate the mean and variance of the distribution of the state</span>
+<span class="comment">%vector</span>
+beta2 = zeros(t,1);   <span class="comment">%this will hold the draw of the state variable</span>
+wa=randn(t,1);
+
+i=t;  <span class="comment">%period t</span>
+p00=squeeze(ptt(i,:,:));
+beta2(i,:)=beta_tt(i:i,:)+(wa(i:i,:)*chol(p00));
+
+<span class="comment">%periods t-1..to 1</span>
+
+<span class="keyword">for</span> i=t-1:-1:1
+pt=squeeze(ptt(i,:,:));
+
+bm=beta_tt(i:i,:)+(pt*F'*inv(F*pt*F'+Q)*(beta2(i+1:i+1,:)-mu-beta_tt(i,:)*F')')';
+
+pm=pt-pt*F'*inv(F*pt*F'+Q)*F*pt;
+
+beta2(i:i,:)=bm+(wa(i:i,:)*chol(pm));
+
+<span class="keyword">end</span>
+
+plot([beta_tt beta2 Beta])
+axis <span class="string">tight</span>
+legend(<span class="string">'Kalman filter estimated \beta_{t}'</span>,<span class="string">'Draw from H(\beta_{t})'</span>,<span class="string">'true \beta_{t}'</span>);
+</pre><p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+clear
+%generate data for a state space model
+%Y=Beta[t]*X+e1
+%Beta[t]=mu+F*Beta[t-1]+e2
+%var(e1)=R
+%var(e2)=Q
+t=500;
+Q=0.001;
+R=0.01;
+F=1;  %these are fixed
+mu=0;  %these are fixed
+e1=randn(t,1)*sqrt(R);
+e2=randn(t,1)*sqrt(Q);
+Beta=zeros(t,1);
+Y=zeros(t,1);
+X=randn(t,1);
+for j=2:t
+    Beta(j,:)=Beta(j-1,:)+e2(j,:);
+    Y(j)=X(j,:)*Beta(j,:)'+e1(j);
+end
+
+
+
+
+
+%%Step 1 Set up matrices for the Kalman Filter
+
+beta0=zeros(1,1);   %state variable  b[0/0]
+p00=1;          %variance of state variable p[0/0]
+beta_tt=[];          %will hold the filtered state variable
+ptt=zeros(t,1,1);    % will hold its variance
+
+%initialise the state variable
+beta11=beta0; 
+p11=p00;
+
+
+
+for i=1:t
+    x=X(i);
+
+    %Prediction
+beta10=mu+beta11*F';
+p10=F*p11*F'+Q;
+yhat=(x*(beta10)')';                                               
+eta=Y(i,:)-yhat;
+feta=(x*p10*x')+R;
+%updating
+K=(p10*x')*inv(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+
+ptt(i,:,:)=p11;
+beta_tt=[beta_tt;beta11];
+
+end
+%%%%%%%%%%%end of Kalman Filter%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% Carter and Kohn Backward recursion to calculate the mean and variance of the distribution of the state
+%vector
+beta2 = zeros(t,1);   %this will hold the draw of the state variable
+wa=randn(t,1);
+
+i=t;  %period t
+p00=squeeze(ptt(i,:,:)); 
+beta2(i,:)=beta_tt(i:i,:)+(wa(i:i,:)*chol(p00));   
+
+%periods t-1..to 1
+
+for i=t-1:-1:1
+pt=squeeze(ptt(i,:,:));
+
+bm=beta_tt(i:i,:)+(pt*F'*inv(F*pt*F'+Q)*(beta2(i+1:i+1,:)-mu-beta_tt(i,:)*F')')';  
+
+pm=pt-pt*F'*inv(F*pt*F'+Q)*F*pt;  
+
+beta2(i:i,:)=bm+(wa(i:i,:)*chol(pm));  
+
+end
+
+plot([beta_tt beta2 Beta])
+axis tight
+legend('Kalman filter estimated \beta_{t}','Draw from H(\beta_{t})','true \beta_{t}');
+##### SOURCE END #####
+--></body></html>

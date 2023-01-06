@@ -1,0 +1,545 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML is auto-generated from an M-file.
+To make changes, update the M-file and republish this document.
+      --><title>example4</title><meta name="generator" content="MATLAB 7.9"><meta name="date" content="2011-03-02"><meta name="m-file" content="example4"><style type="text/css">
+
+body {
+  background-color: white;
+  margin:10px;
+}
+
+h1 {
+  color: #990000; 
+  font-size: x-large;
+}
+
+h2 {
+  color: #990000;
+  font-size: medium;
+}
+
+/* Make the text shrink to fit narrow windows, but not stretch too far in 
+wide windows. */ 
+p,h1,h2,div.content div {
+  max-width: 600px;
+  /* Hack for IE6 */
+  width: auto !important; width: 600px;
+}
+
+pre.codeinput {
+  background: #EEEEEE;
+  padding: 10px;
+}
+@media print {
+  pre.codeinput {word-wrap:break-word; width:100%;}
+} 
+
+span.keyword {color: #0000FF}
+span.comment {color: #228B22}
+span.string {color: #A020F0}
+span.untermstring {color: #B20000}
+span.syscmd {color: #B28C00}
+
+pre.codeoutput {
+  color: #666666;
+  padding: 10px;
+}
+
+pre.error {
+  color: red;
+}
+
+p.footer {
+  text-align: right;
+  font-size: xx-small;
+  font-weight: lighter;
+  font-style: italic;
+  color: gray;
+}
+
+  </style></head><body><div class="content"><pre class="codeinput">clear
+addpath(<span class="string">'functions'</span>);
+[ data0 junk ]=xlsread(<span class="string">'\data\datain.xls'</span>);
+[ junk names ]=xlsread(<span class="string">'\data\names.xls'</span>);
+<span class="comment">%names=names(1,2:end);</span>
+index=xlsread(<span class="string">'\data\index.xls'</span>);
+dindex=index(:,1); <span class="comment">%dindex=1 for series that are log differenced dindex=3 differencing without logs</span>
+index=index(:,2);  <span class="comment">%index=1 for 'fast moving' series</span>
+
+
+<span class="comment">%first difference the data where appropriate</span>
+data=[];
+<span class="keyword">for</span> i=1:cols(data0);
+    <span class="keyword">if</span> dindex(i)==1
+        dat=log(data0(:,i));
+        dat=diff(dat)*100;
+    <span class="keyword">elseif</span> dindex(i)==3
+        dat=diff(data0(:,i));
+    <span class="keyword">else</span>
+        dat=data0(2:end,i);
+    <span class="keyword">end</span>
+    data=[data dat];
+<span class="keyword">end</span>
+<span class="comment">%standardise the data</span>
+data=standardise(data);
+
+
+<span class="comment">%load policy rate and standardize it</span>
+z=xlsread(<span class="string">'\data\baserate.xls'</span>);
+z=z(2:end);
+z=standardise(z);
+
+
+
+KK=3;  <span class="comment">%number of factors</span>
+L=2;  <span class="comment">%number of lags in the VAR</span>
+N=KK+1; <span class="comment">%number of Variables in var K factors plus the interest rate</span>
+NN=cols(data);<span class="comment">% size of the panel</span>
+T=rows(data)
+<span class="comment">%step 1 of the algorithm set starting values and priors</span>
+
+<span class="comment">%get an intial guess for the factor via principal components</span>
+pmat=extract(data,KK);
+beta0=[pmat(1,:) z(1) zeros(1,N)];  <span class="comment">%state vector S[t-1/t-1]</span>
+ns=cols(beta0);
+P00=eye(ns);  <span class="comment">%P[t-1/t-1]</span>
+rmat=ones(NN,1); <span class="comment">%arbitrary starting value for the variance of the idiosyncratic component</span>
+Sigma=eye(N);  <span class="comment">%arbitrary starting value for the variance of VAR errors</span>
+
+<span class="comment">%flat prior for the factor loadings,variances and VAR</span>
+reps=5000;
+burn=4000;
+mm=1;
+<span class="keyword">for</span> m=1:reps;
+
+<span class="comment">%gibbs sampling</span>
+
+
+<span class="comment">%step 2 sample factor loadings</span>
+fload=[];
+floadr=[];
+error=[];
+<span class="keyword">for</span> i=1:NN
+    y=data(:,i);
+    <span class="keyword">if</span> index(i)==0
+        x=pmat;
+    <span class="keyword">else</span>
+        x=[pmat z];
+    <span class="keyword">end</span>
+    M=inv(x'*x)*(x'*y);
+    V=rmat(i)*inv(x'*x);
+    <span class="comment">%draw</span>
+    ff=M+(randn(1,cols(x))*cholx(V))';
+
+    <span class="comment">%save</span>
+    <span class="keyword">if</span> index(i)==0;
+        fload=[fload;ff'];
+        floadr=[floadr;0];
+    <span class="keyword">else</span>
+           fload=[fload;ff(1:end-1)'];
+        floadr=[floadr;ff(end)];
+    <span class="keyword">end</span>
+    error=[error y-x*ff];
+<span class="keyword">end</span>
+
+
+<span class="comment">%for identification top K by K block of fload is identity</span>
+fload(1:KK,1:KK)=eye(KK);
+<span class="comment">%for identification top K by 1 block of Floadr is zero</span>
+floadr(24:24+KK-1,1)=zeros(KK,1);
+
+<span class="comment">%step 3 sample variance of the idiosyncratic components from inverse</span>
+<span class="comment">%wishart</span>
+
+rmat=[];
+<span class="keyword">for</span> i=1:NN
+    rmati= IG(0,0,error(:,i));
+    rmat=[rmat rmati];
+<span class="keyword">end</span>
+
+<span class="comment">%step 4 sample VAR coefficients</span>
+Y=[pmat z];
+X=[lag0(Y,1) lag0(Y,2) ones(rows(Y),1)];
+Y=Y(2:end,:);
+X=X(2:end,:);
+
+M=vec(inv(X'*X)*(X'*Y));  <span class="comment">%conditional mean</span>
+V=kron(Sigma,inv(X'*X)); <span class="comment">%conditional variance</span>
+chck=-1;                 <span class="comment">%make sure VAR is stationary</span>
+<span class="keyword">while</span> chck&lt;0
+beta=M+(randn(1,N*(N*L+1))*cholx(V))';  <span class="comment">%draw for VAR coefficients</span>
+S=stability(beta,N,L);
+<span class="keyword">if</span> S==0
+    chck=10;
+<span class="keyword">end</span>
+<span class="keyword">end</span>
+beta1=reshape(beta,N*L+1,N);
+
+errorsv=Y-X*beta1;
+
+<span class="comment">%sample VAR covariance</span>
+scale=errorsv'*errorsv;
+Sigma=iwpQ(T,inv(scale));
+
+
+
+<span class="comment">%step 5 prepare matrices for the state space</span>
+<span class="comment">%Y=H*factors+e</span>
+<span class="comment">%factors=MU+F*Factors(-1)+v</span>
+<span class="comment">%e~N(0,R)</span>
+<span class="comment">%v~N(0,Q)</span>
+
+<span class="comment">%matrix of factor loadings</span>
+H=zeros(NN,(KK+1)*L);
+H(1:rows(fload),1:KK+1)=[fload floadr];
+H(rows(floadr)+1,KK+1)=1;
+<span class="comment">%matrix R</span>
+R=diag([rmat 0]);
+<span class="comment">%vector MU</span>
+MU=[beta1(end,:)';zeros(N*(L-1),1)]';
+<span class="comment">%matrix F</span>
+F=[beta1(1:N*L,:)';eye(N*(L-1),N*L)];
+<span class="comment">%matrix Q</span>
+Q=zeros(rows(F),rows(F));
+Q(1:N,1:N)=Sigma;
+
+
+
+<span class="comment">%Carter and Kohn algorithm to draw the factor</span>
+beta_tt=[];          <span class="comment">%will hold the filtered state variable</span>
+ptt=zeros(T,ns,ns);    <span class="comment">% will hold its variance</span>
+<span class="comment">% %%%%%%%%%%%Step 6a run Kalman Filter</span>
+i=1;
+x=H;
+<span class="comment">%Prediction</span>
+beta10=MU+beta0*F';
+p10=F*P00*F'+Q;
+yhat=(x*(beta10)')';
+eta=[data(i,:) z(i,:)]-yhat;
+feta=(x*p10*x')+R;
+<span class="comment">%updating</span>
+K=(p10*x')*inv(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+beta_tt=[beta_tt;beta11];
+ptt(i,:,:)=p11;
+<span class="keyword">for</span> i=2:T
+    <span class="comment">%Prediction</span>
+beta10=MU+beta11*F';
+p10=F*p11*F'+Q;
+yhat=(x*(beta10)')';
+eta=[data(i,:) z(i,:)]-yhat;
+feta=(x*p10*x')+R;
+<span class="comment">%updating</span>
+K=(p10*x')*inv(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+ptt(i,:,:)=p11;
+beta_tt=[beta_tt;beta11];
+<span class="keyword">end</span>
+<span class="comment">% Backward recursion to calculate the mean and variance of the distribution of the state</span>
+<span class="comment">%vector</span>
+beta2 = zeros(T,ns);   <span class="comment">%this will hold the draw of the state variable</span>
+jv=1:3; <span class="comment">%index of state variables to extract</span>
+wa=randn(T,ns);
+f=F(jv,:);
+q=Q(jv,jv);
+mu=MU(jv);
+i=T;  <span class="comment">%period t</span>
+p00=squeeze(ptt(i,jv,jv));
+beta2(i,jv)=beta_tt(i:i,jv)+(wa(i:i,jv)*cholx(p00));   <span class="comment">%draw for beta in period t from N(beta_tt,ptt)</span>
+<span class="comment">%periods t-1..to .1</span>
+<span class="keyword">for</span> i=T-1:-1:1
+pt=squeeze(ptt(i,:,:));
+bm=beta_tt(i:i,:)+(pt*f'*inv(f*pt*f'+q)*(beta2(i+1:i+1,jv)-mu-beta_tt(i,:)*f')')';
+pm=pt-pt*f'*inv(f*pt*f'+q)*f*pt;
+beta2(i:i,jv)=bm(jv)+(wa(i:i,jv)*cholx(pm(jv,jv)));
+
+<span class="keyword">end</span>
+
+
+pmat=beta2(:,1:3);   <span class="comment">%update the factors</span>
+
+<span class="keyword">if</span> m&gt;burn
+    <span class="comment">%compute impulse response</span>
+    A0=cholx(Sigma);
+    yhat=zeros(36,N);
+vhat=zeros(36,N);
+vhat(3,1:N)=[0 0 0 1];
+
+<span class="keyword">for</span> i=3:36
+ yhat(i,:)=[yhat(i-1,:) yhat(i-2,:) 1]*[beta1(1:N*L,:);zeros(1,N)]+vhat(i,:)*A0;
+<span class="keyword">end</span>
+
+yhat1=yhat*H(:,1:KK+1)';  <span class="comment">%impulse response for the panel</span>
+
+irfmat(mm,1:36,1:NN+1)=(yhat1);
+
+mm=mm+1;
+<span class="keyword">end</span>
+
+
+<span class="keyword">end</span>
+
+
+
+irf=prctile(irfmat,[50 16 84],1);
+
+
+figure(1)
+j=1
+<span class="keyword">for</span> i=1:size(irf,3)
+subplot(4,10,j)
+plotx1(squeeze(irf(:,:,i))');
+title(strcat(<span class="string">'\fontsize{8}'</span>, names(i)))
+j=j+1
+axis <span class="string">tight</span>
+<span class="keyword">end</span>
+</pre><p class="footer"><br>
+      Published with MATLAB&reg; 7.9<br></p></div><!--
+##### SOURCE BEGIN #####
+clear
+addpath('functions');
+[ data0 junk ]=xlsread('\data\datain.xls');
+[ junk names ]=xlsread('\data\names.xls');
+%names=names(1,2:end);
+index=xlsread('\data\index.xls');
+dindex=index(:,1); %dindex=1 for series that are log differenced dindex=3 differencing without logs
+index=index(:,2);  %index=1 for 'fast moving' series
+
+
+%first difference the data where appropriate
+data=[];
+for i=1:cols(data0);
+    if dindex(i)==1
+        dat=log(data0(:,i));
+        dat=diff(dat)*100;
+    elseif dindex(i)==3
+        dat=diff(data0(:,i));
+    else
+        dat=data0(2:end,i);
+    end
+    data=[data dat];
+end
+%standardise the data
+data=standardise(data);
+
+
+%load policy rate and standardize it
+z=xlsread('\data\baserate.xls');
+z=z(2:end);
+z=standardise(z);
+
+
+
+KK=3;  %number of factors
+L=2;  %number of lags in the VAR
+N=KK+1; %number of Variables in var K factors plus the interest rate
+NN=cols(data);% size of the panel
+T=rows(data)
+%step 1 of the algorithm set starting values and priors
+
+%get an intial guess for the factor via principal components
+pmat=extract(data,KK);
+beta0=[pmat(1,:) z(1) zeros(1,N)];  %state vector S[t-1/t-1]
+ns=cols(beta0);
+P00=eye(ns);  %P[t-1/t-1]
+rmat=ones(NN,1); %arbitrary starting value for the variance of the idiosyncratic component
+Sigma=eye(N);  %arbitrary starting value for the variance of VAR errors
+
+%flat prior for the factor loadings,variances and VAR
+reps=5000;
+burn=4000;
+mm=1;
+for m=1:reps;
+
+%gibbs sampling 
+
+
+%step 2 sample factor loadings
+fload=[];
+floadr=[];
+error=[];
+for i=1:NN
+    y=data(:,i);
+    if index(i)==0
+        x=pmat;
+    else
+        x=[pmat z];
+    end
+    M=inv(x'*x)*(x'*y);
+    V=rmat(i)*inv(x'*x);
+    %draw
+    ff=M+(randn(1,cols(x))*cholx(V))';
+    
+    %save
+    if index(i)==0;
+        fload=[fload;ff'];
+        floadr=[floadr;0];
+    else
+           fload=[fload;ff(1:end-1)'];
+        floadr=[floadr;ff(end)];
+    end
+    error=[error y-x*ff];
+end
+
+
+%for identification top K by K block of fload is identity
+fload(1:KK,1:KK)=eye(KK);
+%for identification top K by 1 block of Floadr is zero
+floadr(24:24+KK-1,1)=zeros(KK,1);
+
+%step 3 sample variance of the idiosyncratic components from inverse
+%wishart
+
+rmat=[];
+for i=1:NN
+    rmati= IG(0,0,error(:,i));
+    rmat=[rmat rmati];
+end
+
+%step 4 sample VAR coefficients
+Y=[pmat z];
+X=[lag0(Y,1) lag0(Y,2) ones(rows(Y),1)];
+Y=Y(2:end,:);
+X=X(2:end,:);
+
+M=vec(inv(X'*X)*(X'*Y));  %conditional mean
+V=kron(Sigma,inv(X'*X)); %conditional variance
+chck=-1;                 %make sure VAR is stationary
+while chck<0
+beta=M+(randn(1,N*(N*L+1))*cholx(V))';  %draw for VAR coefficients
+S=stability(beta,N,L);
+if S==0
+    chck=10;
+end
+end
+beta1=reshape(beta,N*L+1,N);
+
+errorsv=Y-X*beta1;
+
+%sample VAR covariance
+scale=errorsv'*errorsv;
+Sigma=iwpQ(T,inv(scale));
+
+
+
+%step 5 prepare matrices for the state space
+%Y=H*factors+e
+%factors=MU+F*Factors(-1)+v
+%e~N(0,R)
+%v~N(0,Q)
+
+%matrix of factor loadings
+H=zeros(NN,(KK+1)*L);
+H(1:rows(fload),1:KK+1)=[fload floadr];
+H(rows(floadr)+1,KK+1)=1;
+%matrix R
+R=diag([rmat 0]);
+%vector MU
+MU=[beta1(end,:)';zeros(N*(L-1),1)]';
+%matrix F
+F=[beta1(1:N*L,:)';eye(N*(L-1),N*L)];
+%matrix Q
+Q=zeros(rows(F),rows(F));
+Q(1:N,1:N)=Sigma;
+
+
+
+%Carter and Kohn algorithm to draw the factor
+beta_tt=[];          %will hold the filtered state variable
+ptt=zeros(T,ns,ns);    % will hold its variance
+% %%%%%%%%%%%Step 6a run Kalman Filter
+i=1;
+x=H;
+%Prediction
+beta10=MU+beta0*F';
+p10=F*P00*F'+Q;
+yhat=(x*(beta10)')';                                                
+eta=[data(i,:) z(i,:)]-yhat;
+feta=(x*p10*x')+R;
+%updating
+K=(p10*x')*inv(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+beta_tt=[beta_tt;beta11];
+ptt(i,:,:)=p11;
+for i=2:T
+    %Prediction
+beta10=MU+beta11*F';
+p10=F*p11*F'+Q;
+yhat=(x*(beta10)')';                                               
+eta=[data(i,:) z(i,:)]-yhat;
+feta=(x*p10*x')+R;
+%updating
+K=(p10*x')*inv(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+ptt(i,:,:)=p11;
+beta_tt=[beta_tt;beta11];
+end
+% Backward recursion to calculate the mean and variance of the distribution of the state
+%vector
+beta2 = zeros(T,ns);   %this will hold the draw of the state variable
+jv=1:3; %index of state variables to extract
+wa=randn(T,ns);
+f=F(jv,:);
+q=Q(jv,jv);
+mu=MU(jv);
+i=T;  %period t
+p00=squeeze(ptt(i,jv,jv)); 
+beta2(i,jv)=beta_tt(i:i,jv)+(wa(i:i,jv)*cholx(p00));   %draw for beta in period t from N(beta_tt,ptt)
+%periods t-1..to .1
+for i=T-1:-1:1
+pt=squeeze(ptt(i,:,:));
+bm=beta_tt(i:i,:)+(pt*f'*inv(f*pt*f'+q)*(beta2(i+1:i+1,jv)-mu-beta_tt(i,:)*f')')';  
+pm=pt-pt*f'*inv(f*pt*f'+q)*f*pt;  
+beta2(i:i,jv)=bm(jv)+(wa(i:i,jv)*cholx(pm(jv,jv)));  
+
+end
+
+
+pmat=beta2(:,1:3);   %update the factors
+
+if m>burn
+    %compute impulse response
+    A0=cholx(Sigma);
+    yhat=zeros(36,N);
+vhat=zeros(36,N);
+vhat(3,1:N)=[0 0 0 1];
+
+for i=3:36
+ yhat(i,:)=[yhat(i-1,:) yhat(i-2,:) 1]*[beta1(1:N*L,:);zeros(1,N)]+vhat(i,:)*A0;
+end
+
+yhat1=yhat*H(:,1:KK+1)';  %impulse response for the panel
+
+irfmat(mm,1:36,1:NN+1)=(yhat1);
+
+mm=mm+1;
+end
+    
+
+end
+
+
+
+irf=prctile(irfmat,[50 16 84],1);
+
+
+figure(1)
+j=1
+for i=1:size(irf,3)
+subplot(4,10,j)
+plotx1(squeeze(irf(:,:,i))');
+title(strcat('\fontsize{8}', names(i)))
+j=j+1
+axis tight
+end
+##### SOURCE END #####
+--></body></html>

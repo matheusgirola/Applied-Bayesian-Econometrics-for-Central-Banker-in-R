@@ -1,0 +1,11 @@
+function [hnew,naccept]=svol1(mu0,iP00,hleadx,FF,QQ,iQQ)
+NS=cols(mu0);
+XX=log(mu0);
+hlead=hleadx;
+BINV=iP00+(FF'*iQQ*FF);
+b=(iP00*XX')'+log(hlead)*iQQ*FF;
+VV=inv(BINV);
+MM=VV*b';
+htrial=(exp(MM+(randn(1,NS)*chol(VV))'))';
+    hnew=htrial;
+    naccept=1;

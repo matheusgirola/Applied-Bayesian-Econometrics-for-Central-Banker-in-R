@@ -1,0 +1,47 @@
+function out=spectrum(x,J)
+T=rows(x);
+q=2*sqrt(T);
+xbar=mean(x);
+j=0;
+lamda0=sum((x(j+1:T)-xbar).*(x(j+1:T)-xbar))/T;
+
+out=[];
+for jj=1:length(J)
+    f=lamda0;
+    for j=1:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% xbar=mean(x);
+% out=[];
+% for jj=1:length(J)
+% f=0;
+% % k=0;
+% % lamda0=sum((x(k+1:T)-xbar).*(x(k+1:T)-xbar));
+% for k=1:m
+%     xlag=lag0(x,k);
+%     Rk=sum((x(k+1:T)-xbar).*(xlag(k+1:T)-xbar))/sum((x-xbar).^2);
+%     lamdak=1-k/m;
+%     omegaj=(J(jj)*(pi))/m;
+%     f=f+lamdak*Rk*cos(k*omegaj);
+% end
+% f=1+2*f;
+% 
+% out=[out;f/pi];
+% end

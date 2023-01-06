@@ -1,0 +1,562 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>example5</title><meta name="generator" content="MATLAB 8.6"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-06-10"><meta name="DC.source" content="example5.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput">clear;
+addpath(<span class="string">'functions'</span>)
+
+
+<span class="comment">%generate artificial data</span>
+nobs=996; <span class="comment">%996 months 332 quarters</span>
+btrue=[0.95 0.1;
+       0.1 0.95;
+       -0.1 0;
+       0    -0.1;
+       -0.05  0;
+       0    -0.05;
+       0     0];
+
+   sigmatrue=[2  1;
+              1 2];
+
+ datatrue=zeros(nobs,2);
+ <span class="keyword">for</span> j=4:nobs
+ datatrue(j,:)=[datatrue(j-1,:) datatrue(j-2,:) datatrue(j-3,:) 1]*btrue+randn(1,2)*chol(sigmatrue);
+ <span class="keyword">end</span>
+ <span class="comment">%assume first variable is subject to temporal aggregation</span>
+ dataQ=zeros(nobs/3,1); <span class="comment">%quarterly data Y</span>
+ jj=1;
+ <span class="keyword">for</span> j=1:3:nobs
+     tmp=datatrue(j:j+2,1);
+     dataQ(jj,:)=mean(tmp);
+     jj=jj+1;
+ <span class="keyword">end</span>
+dataM=datatrue(:,2); <span class="comment">%monthly data X</span>
+
+<span class="comment">%arrange data</span>
+<span class="comment">%put missing observations</span>
+dataN=[  nan(rows(dataQ),2) dataQ(:,1) ];  <span class="comment">%puts NANs for missing obs</span>
+dataN=vecr(dataN);
+data0=[ zeros(rows(dataQ),2) dataQ(:,1) ];  <span class="comment">%same as above but zeros for missing</span>
+data0=vecr(data0);
+<span class="comment">%initial value of data just repeated observations</span>
+dataX=repmat(dataQ(:,1),1,3);
+dataX=vecr(dataX); <span class="comment">%</span>
+data=[dataX dataM];
+dataid=[ dataN dataM];
+dataid0=[ data0 dataM];
+mid=isnan(dataid);  <span class="comment">%id for missing obs</span>
+
+
+N=cols(data);
+REPS=11000;
+BURN=10500;
+
+L=3;  <span class="comment">%lags</span>
+Y=data;
+X=prepare(data,L); <span class="comment">%X=[Y(-1),Y(-2)...constant]</span>
+Y=Y(L+1:end,:);
+X=X(L+1:end,:);
+dataid0=dataid0(L+1:end,:);
+dataM=dataM(L+1:end,:);
+
+
+
+T=rows(X);
+
+<span class="comment">%initial values for VAR coefficients</span>
+
+b0=X\Y;  <span class="comment">%ols</span>
+e0=Y-X*b0;
+
+sigma=eye(N);
+
+<span class="comment">%priors for VAR coefficients (Banbura et.al)</span>
+lamdaP  = 1;
+tauP    = 10*lamdaP;
+epsilonP= 1;
+muP=mean(Y)';
+sigmaP=[];
+deltaP=[];
+e0=[];
+<span class="keyword">for</span> i=1:N
+    ytemp=Y(:,i);
+    xtemp=[lag0(ytemp,1) ones(rows(ytemp),1)];
+    ytemp=ytemp(2:end,:);
+    xtemp=xtemp(2:end,:);
+    btemp=xtemp\ytemp;
+    etemp=ytemp-xtemp*btemp;
+    stemp=etemp'*etemp/rows(ytemp);
+    <span class="keyword">if</span> abs(btemp(1))&gt;1
+        btemp(1)=1;
+    <span class="keyword">end</span>
+    deltaP=[deltaP;btemp(1)];
+    sigmaP=[sigmaP;stemp];
+    e0=[e0 etemp];
+<span class="keyword">end</span>
+
+<span class="comment">%dummy data to implement priors see http://ideas.repec.org/p/ecb/ecbwps/20080966.html</span>
+[yd,xd] = create_dummies(lamdaP,tauP,deltaP,epsilonP,L,muP,sigmaP,N);
+
+
+<span class="comment">%Initial values for the Kalman filter B0/0</span>
+beta0=[];
+<span class="keyword">for</span> j=0:L-1
+    beta0=[beta0 Y(L-j,:)];
+<span class="keyword">end</span>
+P00=eye(cols(beta0))*0.1;  <span class="comment">%P[0/0]</span>
+
+
+<span class="comment">% Gibbs sampler</span>
+gibbs1=1;
+<span class="keyword">for</span> gibbs=1:REPS
+
+
+
+<span class="comment">%step 1 Draw VAR coefficients</span>
+X0=[X;xd]; <span class="comment">%add dummy obs</span>
+Y0=[Y;yd];
+mstar=vec(X0\Y0);
+vstar=kron(sigma,invpd(X0'*X0));
+chck=-1;
+<span class="keyword">while</span> chck&lt;0
+varcoef=mstar+(randn(1,N*(N*L+1))*chol(vstar))'; <span class="comment">%draw but keep stable</span>
+ee=stability(varcoef,N,L);
+<span class="keyword">if</span> ee==0;
+    chck=1;
+<span class="keyword">end</span>
+<span class="keyword">end</span>
+
+
+<span class="comment">%step 2 Draw VAR covariance</span>
+ resids=Y0-X0*reshape(varcoef,N*L+1,N);
+scaleS=(resids'*resids);
+sigma=iwpQ(T,invpd(scaleS)); <span class="comment">%draw for inverse Wishart</span>
+
+<span class="comment">%step 3 Carter Kohn algorithm  to draw monthly data</span>
+
+ns=cols(P00);
+[F,MUx]=comp(varcoef,N,L,1); <span class="comment">%companion form for coefficients</span>
+Q=zeros(ns,ns);
+Q(1:N,1:N)=sigma; <span class="comment">%companion form for covariance</span>
+
+<span class="comment">%Carter and Kohn algorithm to draw the factor</span>
+beta_tt=zeros(T,ns);          <span class="comment">%will hold the filtered state variable</span>
+ptt=zeros(T,ns,ns);    <span class="comment">% will hold its variance</span>
+<span class="comment">% %%%%%%%%%%%Step 6a run Kalman Filter</span>
+beta11=beta0;
+p11=P00;
+<span class="keyword">for</span> i=1:T
+nanid=mid(i,1); <span class="comment">%checks if data on GDP is missing</span>
+<span class="keyword">if</span> nanid==1 <span class="comment">%missing</span>
+ H=[0 0 0 0 0 0;
+    0 1 0  0  0  0];
+
+    rr=zeros(1,N);
+    rr(1)=1e10;  <span class="comment">%big variance so missing data ignored</span>
+    R=diag(rr);
+<span class="keyword">else</span>  <span class="comment">%valid  observation for first variable every 3rd month</span>
+     H=[1/3 0 1/3 0 1/3 0;
+    0 1 0  0  0  0];
+
+    rr=zeros(1,N);
+    R=diag(rr);
+
+
+<span class="keyword">end</span>
+
+x=H;
+
+
+
+
+    <span class="comment">%Prediction</span>
+beta10=MUx+beta11*F';
+p10=F*p11*F'+Q;
+yhat=(x*(beta10)')';
+eta=dataid0(i,:)-yhat;
+feta=(x*p10*x')+R;
+<span class="comment">%updating</span>
+K=(p10*x')*invpd(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+ptt(i,:,:)=p11;
+beta_tt(i,:)=beta11;
+<span class="keyword">end</span>
+<span class="comment">% Backward recursion to calculate the mean and variance of the distribution of the state</span>
+<span class="comment">%vector</span>
+beta2 = zeros(T,ns);   <span class="comment">%this will hold the draw of the state variable</span>
+bm2=beta2;
+jv=1:2; <span class="comment">%index of non singular block</span>
+jv1=[1 3 5]; <span class="comment">%state variables to draw, 3, 5 are lagged states</span>
+
+wa=randn(T,ns);
+
+i=T;  <span class="comment">%period t</span>
+p00=squeeze(ptt(i,jv1,jv1));
+beta2(i,:)=beta_tt(i,:);
+beta2(i,jv1)=mvnrnd(beta_tt(i:i,jv1),p00,1);<span class="comment">%beta_tt(i:i,jv1)+(wa(i:i,jv1)*cholx(p00));   %draw for beta in period t from N(beta_tt,ptt)</span>
+q=Q(jv,jv);
+mu=MUx(jv);
+f=F(jv,:);
+<span class="comment">%periods t-1..to .1</span>
+<span class="keyword">for</span> i=T-1:-1:1
+
+pt=squeeze(ptt(i,:,:));
+bm=beta_tt(i:i,:)+(pt*f'*invpd(f*pt*f'+q)*(beta2(i+1:i+1,jv)-mu-beta_tt(i,:)*f')')';
+pm=pt-pt*f'*invpd(f*pt*f'+q)*f*pt;
+beta2(i,:)=bm;
+beta2(i:i,jv1)=mvnrnd(bm(jv1),pm(jv1,jv1),1);     <span class="comment">%bm(jv1)+(wa(i:i,jv1)*cholx(pm(jv1,jv1)));</span>
+bm2(i,:)=bm;
+<span class="keyword">end</span>
+
+out=beta2(:,1); <span class="comment">%draw of monthly data</span>
+
+
+
+
+
+
+
+
+
+datax=[out dataM];
+    Y=datax;
+X=prepare(Y,L);
+Y=Y(L+1:end,:);
+X=X(L+1:end,:);
+
+
+
+
+disp(sprintf(<span class="string">'Iteration Number= %s '</span>, num2str(gibbs)));
+
+<span class="keyword">if</span> gibbs&gt;=BURN
+
+ dmat(:,gibbs1)=out;
+ bmat(gibbs1,:)=varcoef;
+ smat(gibbs1,:,:)=sigma;
+gibbs1=gibbs1+1;
+<span class="keyword">end</span>
+
+<span class="keyword">end</span>
+
+figure(1)
+tmp=prctile(dmat,[50 ],2);
+plot(tmp,<span class="string">'r'</span>);hold <span class="string">on</span>;
+plot(datatrue(4:end,1),<span class="string">'k'</span>)
+legend(<span class="string">'Posterior Median'</span>,<span class="string">'True Data'</span>);
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2015b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+clear;
+addpath('functions')
+
+
+%generate artificial data 
+nobs=996; %996 months 332 quarters
+btrue=[0.95 0.1;
+       0.1 0.95;
+       -0.1 0;
+       0    -0.1;
+       -0.05  0;
+       0    -0.05;
+       0     0];
+   
+   sigmatrue=[2  1;
+              1 2];
+      
+ datatrue=zeros(nobs,2);
+ for j=4:nobs
+ datatrue(j,:)=[datatrue(j-1,:) datatrue(j-2,:) datatrue(j-3,:) 1]*btrue+randn(1,2)*chol(sigmatrue);
+ end
+ %assume first variable is subject to temporal aggregation
+ dataQ=zeros(nobs/3,1); %quarterly data Y
+ jj=1;
+ for j=1:3:nobs
+     tmp=datatrue(j:j+2,1);
+     dataQ(jj,:)=mean(tmp);
+     jj=jj+1;
+ end
+dataM=datatrue(:,2); %monthly data X
+
+%arrange data
+%put missing observations
+dataN=[  nan(rows(dataQ),2) dataQ(:,1) ];  %puts NANs for missing obs
+dataN=vecr(dataN);
+data0=[ zeros(rows(dataQ),2) dataQ(:,1) ];  %same as above but zeros for missing
+data0=vecr(data0);
+%initial value of data just repeated observations
+dataX=repmat(dataQ(:,1),1,3);
+dataX=vecr(dataX); %
+data=[dataX dataM];
+dataid=[ dataN dataM];
+dataid0=[ data0 dataM];
+mid=isnan(dataid);  %id for missing obs
+
+
+N=cols(data);
+REPS=11000;
+BURN=10500;
+
+L=3;  %lags
+Y=data;
+X=prepare(data,L); %X=[Y(-1),Y(-2)...constant]
+Y=Y(L+1:end,:);
+X=X(L+1:end,:);
+dataid0=dataid0(L+1:end,:);
+dataM=dataM(L+1:end,:);
+
+
+
+T=rows(X);
+
+%initial values for VAR coefficients
+
+b0=X\Y;  %ols
+e0=Y-X*b0;
+
+sigma=eye(N);
+
+%priors for VAR coefficients (Banbura et.al)
+lamdaP  = 1;
+tauP    = 10*lamdaP;
+epsilonP= 1;
+muP=mean(Y)';
+sigmaP=[];
+deltaP=[];
+e0=[];
+for i=1:N
+    ytemp=Y(:,i);
+    xtemp=[lag0(ytemp,1) ones(rows(ytemp),1)];
+    ytemp=ytemp(2:end,:);
+    xtemp=xtemp(2:end,:);
+    btemp=xtemp\ytemp;
+    etemp=ytemp-xtemp*btemp;
+    stemp=etemp'*etemp/rows(ytemp);
+    if abs(btemp(1))>1
+        btemp(1)=1;
+    end
+    deltaP=[deltaP;btemp(1)];
+    sigmaP=[sigmaP;stemp];
+    e0=[e0 etemp];
+end
+
+%dummy data to implement priors see http://ideas.repec.org/p/ecb/ecbwps/20080966.html
+[yd,xd] = create_dummies(lamdaP,tauP,deltaP,epsilonP,L,muP,sigmaP,N);
+
+
+%Initial values for the Kalman filter B0/0
+beta0=[];
+for j=0:L-1
+    beta0=[beta0 Y(L-j,:)];
+end
+P00=eye(cols(beta0))*0.1;  %P[0/0]
+
+
+% Gibbs sampler
+gibbs1=1;
+for gibbs=1:REPS
+
+
+
+%step 1 Draw VAR coefficients  
+X0=[X;xd]; %add dummy obs
+Y0=[Y;yd];
+mstar=vec(X0\Y0);
+vstar=kron(sigma,invpd(X0'*X0));
+chck=-1;
+while chck<0
+varcoef=mstar+(randn(1,N*(N*L+1))*chol(vstar))'; %draw but keep stable
+ee=stability(varcoef,N,L);
+if ee==0;
+    chck=1;
+end
+end
+
+
+%step 2 Draw VAR covariance
+ resids=Y0-X0*reshape(varcoef,N*L+1,N);
+scaleS=(resids'*resids);
+sigma=iwpQ(T,invpd(scaleS)); %draw for inverse Wishart
+
+%step 3 Carter Kohn algorithm  to draw monthly data
+
+ns=cols(P00);
+[F,MUx]=comp(varcoef,N,L,1); %companion form for coefficients
+Q=zeros(ns,ns);
+Q(1:N,1:N)=sigma; %companion form for covariance
+
+%Carter and Kohn algorithm to draw the factor
+beta_tt=zeros(T,ns);          %will hold the filtered state variable
+ptt=zeros(T,ns,ns);    % will hold its variance
+% %%%%%%%%%%%Step 6a run Kalman Filter
+beta11=beta0;
+p11=P00;
+for i=1:T
+nanid=mid(i,1); %checks if data on GDP is missing
+if nanid==1 %missing
+ H=[0 0 0 0 0 0;
+    0 1 0  0  0  0];
+  
+    rr=zeros(1,N);
+    rr(1)=1e10;  %big variance so missing data ignored
+    R=diag(rr);
+else  %valid  observation for first variable every 3rd month
+     H=[1/3 0 1/3 0 1/3 0;
+    0 1 0  0  0  0];
+   
+    rr=zeros(1,N);
+    R=diag(rr);
+  
+  
+end
+    
+x=H;
+
+
+
+
+    %Prediction
+beta10=MUx+beta11*F';
+p10=F*p11*F'+Q;
+yhat=(x*(beta10)')';                                               
+eta=dataid0(i,:)-yhat;
+feta=(x*p10*x')+R;
+%updating
+K=(p10*x')*invpd(feta);
+beta11=(beta10'+K*eta')';
+p11=p10-K*(x*p10);
+ptt(i,:,:)=p11;
+beta_tt(i,:)=beta11;
+end
+% Backward recursion to calculate the mean and variance of the distribution of the state
+%vector
+beta2 = zeros(T,ns);   %this will hold the draw of the state variable
+bm2=beta2;
+jv=1:2; %index of non singular block
+jv1=[1 3 5]; %state variables to draw, 3, 5 are lagged states
+
+wa=randn(T,ns);
+
+i=T;  %period t
+p00=squeeze(ptt(i,jv1,jv1)); 
+beta2(i,:)=beta_tt(i,:);
+beta2(i,jv1)=mvnrnd(beta_tt(i:i,jv1),p00,1);%beta_tt(i:i,jv1)+(wa(i:i,jv1)*cholx(p00));   %draw for beta in period t from N(beta_tt,ptt)
+q=Q(jv,jv);
+mu=MUx(jv);
+f=F(jv,:);
+%periods t-1..to .1
+for i=T-1:-1:1
+   
+pt=squeeze(ptt(i,:,:));
+bm=beta_tt(i:i,:)+(pt*f'*invpd(f*pt*f'+q)*(beta2(i+1:i+1,jv)-mu-beta_tt(i,:)*f')')';  
+pm=pt-pt*f'*invpd(f*pt*f'+q)*f*pt;  
+beta2(i,:)=bm;
+beta2(i:i,jv1)=mvnrnd(bm(jv1),pm(jv1,jv1),1);     %bm(jv1)+(wa(i:i,jv1)*cholx(pm(jv1,jv1)));  
+bm2(i,:)=bm;
+end
+
+out=beta2(:,1); %draw of monthly data
+
+
+
+
+
+
+
+
+    
+datax=[out dataM];
+    Y=datax;
+X=prepare(Y,L);
+Y=Y(L+1:end,:);
+X=X(L+1:end,:);
+
+
+
+    
+disp(sprintf('Iteration Number= %s ', num2str(gibbs)));
+
+if gibbs>=BURN
+
+ dmat(:,gibbs1)=out;
+ bmat(gibbs1,:)=varcoef;
+ smat(gibbs1,:,:)=sigma;
+gibbs1=gibbs1+1;  
+end
+
+end
+
+figure(1)
+tmp=prctile(dmat,[50 ],2);
+plot(tmp,'r');hold on;
+plot(datatrue(4:end,1),'k')
+legend('Posterior Median','True Data');
+
+ 
+##### SOURCE END #####
+--></body></html>

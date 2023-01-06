@@ -1,0 +1,709 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>example6</title><meta name="generator" content="MATLAB 8.6"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-06-08"><meta name="DC.source" content="example6.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput">clear;
+addpath(<span class="string">'functions'</span>);
+<span class="comment">%generate artificial data from a MSTVTP model</span>
+T=500;
+B1=0.2;
+B2=0.9;
+C1=1;
+C2=-1;
+S1=3;
+S2=1;
+GAMMA0=-1;
+GAMMA1=1;
+LAMBDA0=10;
+
+strue=zeros(T,1);
+strue(1,1)=1;
+
+Z=getar(0.9,T);<span class="comment">%randn(T,1);</span>
+e=randn(T,1);
+Y=zeros(T,1);
+X=zeros(T,1);
+SSTAR=zeros(T,1);
+ptrue=zeros(T,1);
+qtrue=zeros(T,1);
+<span class="keyword">for</span> i=2:T;
+    X(i,:)=Y(i-1,:);
+    SSTAR(i,:)=GAMMA0+Z(i,:)*LAMBDA0+GAMMA1*strue(i-1,1)+randn(1,1);
+    <span class="keyword">if</span> SSTAR(i,:)&gt;=0
+        strue(i,1)=1;
+
+    <span class="keyword">end</span>
+    <span class="comment">%transition probabilities</span>
+    ptrue(i)=normcdf((-GAMMA0-Z(i,:)*LAMBDA0));
+    qtrue(i)=1-normcdf((-GAMMA0-Z(i,:)*LAMBDA0-GAMMA1));
+
+
+    <span class="keyword">if</span> strue(i,1)==0
+    Y(i)=[X(i,:) 1]*[B1 C1]'+e(i)*sqrt(S1);
+    <span class="keyword">else</span>
+    Y(i)=[X(i,:) 1]*[B2 C2]'+e(i)*sqrt(S2);
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+<span class="comment">%data</span>
+y=Y;
+x=[X ones(T,1)];
+z=Z;
+
+<span class="comment">%specify starting values</span>
+phi1=[0.5;1];   <span class="comment">%regime 1 coefficients</span>
+phi2=[0.8;-1];   <span class="comment">%regime 2 coefficients</span>
+sig1=3;       <span class="comment">%regime 1 variance</span>
+sig2=1;       <span class="comment">%regime 2 variance</span>
+gamma=[-1 0 1]'; <span class="comment">%coefficients of prob equation</span>
+pp=repmat(0.95,T,1);
+qq=repmat(0.95,T,1);
+ncrit=10; <span class="comment">%each regime should have ncrit obs</span>
+<span class="comment">%set Priors</span>
+
+<span class="comment">%coefficients</span>
+B0=zeros(2,1); <span class="comment">%prior mean</span>
+Sigma0=eye(2); <span class="comment">%prior variance</span>
+
+<span class="comment">%variances</span>
+d0=0.1; <span class="comment">%prior scale</span>
+v0=1;   <span class="comment">%prior df</span>
+
+<span class="comment">%transition probabilities</span>
+GAMMA00=zeros(3,1); <span class="comment">%prior mean coefficients of probability equation</span>
+SGAMMA0=eye(3).*1000;
+
+out1=[];  <span class="comment">%save coefficients</span>
+out2=[];  <span class="comment">%save variances</span>
+out3=[];  <span class="comment">%save S</span>
+out4=[]; <span class="comment">%save p00</span>
+out5=[]; <span class="comment">%save p11</span>
+out6=[]; <span class="comment">%save gamma</span>
+out7=[]; <span class="comment">%save sstar</span>
+
+
+REPS=20000;
+BURN=15000;
+igibbs=1;
+count=1;
+<span class="keyword">while</span> count&lt;REPS-BURN
+
+
+
+<span class="comment">%step 1: sample S[t]</span>
+
+ <span class="comment">%%%%%%%%%%%%%%%%Run Hamilton Filter%%%%%%%%%%%%%%%%</span>
+   <span class="comment">%unconditional probabilities</span>
+pmat=[pp(1) 1-qq(1);
+      1-pp(1) qq(1)];
+A = [(eye(2)-pmat);ones(1,2)];
+           EN=[0;0;1];
+           ett11= pinv(A'*A)*A'*EN;
+    iS1=1/sig1;
+    iS2=1/sig2;
+    lik=0;
+    filter=zeros(T,2);
+    <span class="keyword">for</span> j=1:T
+        pmat=[pp(j) 1-qq(j); <span class="comment">%TVP transition prob</span>
+      1-pp(j) qq(j)];
+        em1=y(j)-x(j,:)*phi1;
+        em2=y(j)-x(j,:)*phi2;
+        neta1=(1/sqrt(sig1))*exp(-0.5*(em1*iS1*em1'));<span class="comment">%F(Y\S=0)</span>
+        neta2=(1/sqrt(sig2))*exp(-0.5*(em2*iS2*em2'));<span class="comment">%F(Y\S=1)</span>
+        <span class="comment">%%%Prediction Step%%%%</span>
+        ett10=pmat*ett11;
+        <span class="comment">%%%%Update Step%%%%</span>
+        ett11=ett10.*[neta1;neta2]; <span class="comment">%joint density F(Y,S)</span>
+        fit=sum(ett11);           <span class="comment">%Marginal density F(Y)</span>
+        ett11=(ett11)/fit;    <span class="comment">%conditional density F(S\Y) the weights of the likelihood</span>
+        filter(j,1:2)=ett11';      <span class="comment">%save filter probability ett</span>
+        lik=lik+log(fit);      <span class="comment">%save log likelihood</span>
+
+    <span class="keyword">end</span>
+
+
+
+ check=-1;
+ <span class="keyword">while</span> check&lt;0
+   <span class="comment">%backward recursion to sample from H(S[t]\S[t+1],y)</span>
+   S=zeros(T,1);
+   <span class="comment">%time T</span>
+   p1=filter(T,1);
+   p2=filter(T,2);
+   p=p1/(p1+p2);
+   u=rand(1,1);
+   S(T,1)=(u&gt;=p);
+
+   <span class="keyword">for</span> t=T-1:-1:1
+          pmat=[pp(t+1) 1-qq(t+1); <span class="comment">%TVP transition prob</span>
+      1-pp(t+1) qq(t+1)];
+   <span class="keyword">if</span> S(t+1)==0
+p00=pmat(1,1)*filter(t,1);
+p01=pmat(1,2)*filter(t,2);
+<span class="keyword">elseif</span> S(t+1)==1
+p00=pmat(2,1)*filter(t,1);
+p01=pmat(2,2)*filter(t,2);
+   <span class="keyword">end</span>
+  u=rand(1,1);
+  p=p00/(p00+p01);
+  <span class="keyword">if</span> u&lt;p
+      S(t)=0;
+  <span class="keyword">else</span>
+      S(t)=1;
+  <span class="keyword">end</span>
+   <span class="keyword">end</span>
+
+<span class="keyword">if</span> sum(S==0)&gt;=ncrit &amp;&amp; sum(S==1)&gt;=ncrit
+    check=1;
+<span class="keyword">end</span>
+ <span class="keyword">end</span>
+
+
+ <span class="comment">%step 2 sample the transition Probabilties</span>
+
+   <span class="comment">%step 2a Sample sstar</span>
+sstar=zeros(T,1);
+Slag=lag0(S,1);
+Slag(1)=Slag(2);
+zall=[ones(T,1) z Slag];
+mm=zall*gamma;
+<span class="keyword">for</span> t=1:T
+
+<span class="keyword">if</span> S(t)==1
+sstar(t)= normlt_rnd(mm(t),1,0);<span class="comment">%draw from left truncated normal N(mm,1)</span>
+<span class="keyword">elseif</span> S(t)==0;
+sstar(t)= normrt_rnd(mm(t),1,0); <span class="comment">%draw from right truncated normal N(mm,1)</span>
+<span class="keyword">end</span>
+
+<span class="keyword">end</span>
+
+  <span class="comment">%step 2 b Calculate pp,qq</span>
+  pp=normcdf(-zall(:,1:end-1)*gamma(1:end-1));
+  qq=1-normcdf(-zall(:,1:end-1)*gamma(1:end-1)-gamma(end));
+
+  <span class="comment">%step 2c Sample gamma</span>
+  yy=sstar;
+  xx=zall;
+  V=inv(inv(SGAMMA0)+(xx'*xx));
+   M=V*(inv(SGAMMA0)*GAMMA00+xx'*yy);
+   gamma=M+(randn(1,3)*chol(V))';
+
+    <span class="comment">%step 3 sample beta</span>
+    <span class="comment">% Select data in regime 1</span>
+    id=find(S==0);
+    y1=y(id);
+    x1=x(id,:);
+    M=inv(inv(Sigma0)+(1/sig1)*(x1'*x1))*(inv(Sigma0)*B0+(1/sig1)*x1'*y1);
+    V=inv(inv(Sigma0)+(1/sig1)*(x1'*x1));
+    phi1=M+(randn(1,2)*chol(V))';
+    <span class="comment">%Select data in regime 2</span>
+    id=find(S==1);
+    y2=y(id);
+    x2=x(id,:);
+    M=inv(inv(Sigma0)+(1/sig2)*(x2'*x2))*(inv(Sigma0)*B0+(1/sig2)*x2'*y2);
+    V=inv(inv(Sigma0)+(1/sig2)*(x2'*x2));
+    phi2=M+(randn(1,2)*chol(V))';
+
+
+    <span class="comment">%step 4 sample sigma</span>
+
+    <span class="comment">%residuals regime 1</span>
+    e1=y1-x1*phi1;
+    T1=v0+rows(e1);
+    D1=d0+e1'*e1;
+    <span class="comment">%draw from IG</span>
+   z0=randn(T1,1);
+    z0z0=z0'*z0;
+   sig1=D1/z0z0;
+   <span class="comment">%residuals regime 2</span>
+    e2=y2-x2*phi2;
+    T2=v0+rows(e2);
+    D2=d0+e2'*e2;
+    <span class="comment">%draw from IG</span>
+   z0=randn(T2,1);
+    z0z0=z0'*z0;
+   sig2=D2/z0z0;
+
+
+
+   <span class="comment">%save and impose regime identification</span>
+   <span class="keyword">if</span> igibbs&gt;BURN
+       chck=phi1(2,1)&gt;phi2(2,1); <span class="comment">%constant bigger in regime 1</span>
+       <span class="keyword">if</span> chck
+           out1=[out1;([phi1' phi2'])];
+           out2=[out2;([sig1 sig2 ])];
+           out3=[out3;S'];
+           out4=[out4;pp'];
+           out5=[out5;qq'];
+           out6=[out6;gamma'];
+           out7=[out7;sstar'];
+           count=count+1;
+       <span class="keyword">end</span>
+
+   <span class="keyword">end</span>
+   igibbs=igibbs+1;
+     disp(sprintf(<span class="string">' Replication %s , %s Saved Draws %s. '</span>, <span class="keyword">...</span>
+             num2str(igibbs), num2str(count) ));
+
+<span class="keyword">end</span>
+
+figure(1)
+subplot(8,2,1);
+hist(out1(:,1),50);
+vline(B1)
+title(<span class="string">'Coefficient regime 1'</span>);
+axis <span class="string">tight</span>
+subplot(8,2,2);
+hist(out1(:,3),50);
+title(<span class="string">'Coefficient regime 2'</span>);
+vline(B2)
+axis <span class="string">tight</span>
+subplot(8,2,3);
+hist(out1(:,2),50);
+vline(C1)
+title(<span class="string">'Intercept regime 1'</span>);
+axis <span class="string">tight</span>
+subplot(8,2,4);
+hist(out1(:,4),50);
+title(<span class="string">'Intercept regime 2'</span>);
+vline(C2)
+axis <span class="string">tight</span>
+subplot(8,2,5);
+hist(out2(:,1),50);
+vline(S1)
+title(<span class="string">'\sigma_{1}'</span>);
+axis <span class="string">tight</span>
+subplot(8,2,6);
+hist(out2(:,2),50);
+vline(S2)
+title(<span class="string">'\sigma_{2}'</span>);
+axis <span class="string">tight</span>
+subplot(8,2,7);
+hist(out6(:,1),50);
+title(<span class="string">'\gamma_0'</span>);
+vline(GAMMA0)
+axis <span class="string">tight</span>
+subplot(8,2,8);
+hist(out6(:,2),50);
+title(<span class="string">'\lambda'</span>);
+vline(LAMBDA0)
+axis <span class="string">tight</span>
+subplot(8,2,9);
+hist(out6(:,3),50);
+title(<span class="string">'\gamma_1'</span>);
+vline(GAMMA1)
+axis <span class="string">tight</span>
+
+subplot(8,2,[11 12])
+temp=mean(out3,1);
+plot(temp,<span class="string">'c'</span>,<span class="string">'LineWidth'</span>,2);
+hold <span class="string">on</span>
+plot(strue(:,1),<span class="string">'k'</span>,<span class="string">'LineWidth'</span>,2)
+title(<span class="string">'Probability of Regime 1'</span>);
+legend(<span class="string">'Estimate'</span>,<span class="string">'True'</span>)
+axis <span class="string">tight</span>
+
+subplot(8,2,[13 14])
+temp=mean(out4,1);
+plot(temp,<span class="string">'c'</span>,<span class="string">'LineWidth'</span>,2);
+hold <span class="string">on</span>
+plot(ptrue(:,1),<span class="string">'k'</span>,<span class="string">'LineWidth'</span>,2)
+title(<span class="string">'p_00'</span>);
+legend(<span class="string">'Estimate'</span>,<span class="string">'True'</span>)
+axis <span class="string">tight</span>
+
+subplot(8,2,[15 16])
+temp=mean(out5,1);
+plot(temp,<span class="string">'c'</span>,<span class="string">'LineWidth'</span>,2);
+hold <span class="string">on</span>
+plot(qtrue(:,1),<span class="string">'k'</span>,<span class="string">'LineWidth'</span>,2)
+title(<span class="string">'p_11'</span>);
+legend(<span class="string">'Estimate'</span>,<span class="string">'True'</span>)
+axis <span class="string">tight</span>
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2015b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+clear;
+addpath('functions');
+%generate artificial data from a MSTVTP model
+T=500;
+B1=0.2;
+B2=0.9;
+C1=1;
+C2=-1;
+S1=3;
+S2=1;
+GAMMA0=-1;
+GAMMA1=1;
+LAMBDA0=10;
+
+strue=zeros(T,1);
+strue(1,1)=1;
+
+Z=getar(0.9,T);%randn(T,1);
+e=randn(T,1);
+Y=zeros(T,1);
+X=zeros(T,1);
+SSTAR=zeros(T,1);
+ptrue=zeros(T,1);
+qtrue=zeros(T,1);
+for i=2:T;
+    X(i,:)=Y(i-1,:);
+    SSTAR(i,:)=GAMMA0+Z(i,:)*LAMBDA0+GAMMA1*strue(i-1,1)+randn(1,1);
+    if SSTAR(i,:)>=0
+        strue(i,1)=1;
+   
+    end
+    %transition probabilities
+    ptrue(i)=normcdf((-GAMMA0-Z(i,:)*LAMBDA0));
+    qtrue(i)=1-normcdf((-GAMMA0-Z(i,:)*LAMBDA0-GAMMA1));
+    
+    
+    if strue(i,1)==0
+    Y(i)=[X(i,:) 1]*[B1 C1]'+e(i)*sqrt(S1);
+    else
+    Y(i)=[X(i,:) 1]*[B2 C2]'+e(i)*sqrt(S2);
+    end
+end
+%data
+y=Y;
+x=[X ones(T,1)];
+z=Z;
+
+%specify starting values
+phi1=[0.5;1];   %regime 1 coefficients
+phi2=[0.8;-1];   %regime 2 coefficients
+sig1=3;       %regime 1 variance
+sig2=1;       %regime 2 variance
+gamma=[-1 0 1]'; %coefficients of prob equation
+pp=repmat(0.95,T,1);
+qq=repmat(0.95,T,1);
+ncrit=10; %each regime should have ncrit obs
+%set Priors
+
+%coefficients
+B0=zeros(2,1); %prior mean
+Sigma0=eye(2); %prior variance
+
+%variances
+d0=0.1; %prior scale
+v0=1;   %prior df
+
+%transition probabilities
+GAMMA00=zeros(3,1); %prior mean coefficients of probability equation
+SGAMMA0=eye(3).*1000;
+
+out1=[];  %save coefficients
+out2=[];  %save variances
+out3=[];  %save S
+out4=[]; %save p00
+out5=[]; %save p11
+out6=[]; %save gamma
+out7=[]; %save sstar
+
+
+REPS=20000;
+BURN=15000;
+igibbs=1;
+count=1;
+while count<REPS-BURN
+    
+ 
+
+%step 1: sample S[t]
+
+ %%%%%%%%%%%%%%%%Run Hamilton Filter%%%%%%%%%%%%%%%%
+   %unconditional probabilities
+pmat=[pp(1) 1-qq(1);
+      1-pp(1) qq(1)];
+A = [(eye(2)-pmat);ones(1,2)];
+           EN=[0;0;1];
+           ett11= pinv(A'*A)*A'*EN;
+    iS1=1/sig1;
+    iS2=1/sig2;
+    lik=0;
+    filter=zeros(T,2);
+    for j=1:T
+        pmat=[pp(j) 1-qq(j); %TVP transition prob
+      1-pp(j) qq(j)];
+        em1=y(j)-x(j,:)*phi1; 
+        em2=y(j)-x(j,:)*phi2; 
+        neta1=(1/sqrt(sig1))*exp(-0.5*(em1*iS1*em1'));%F(Y\S=0)
+        neta2=(1/sqrt(sig2))*exp(-0.5*(em2*iS2*em2'));%F(Y\S=1)
+        %%%Prediction Step%%%%
+        ett10=pmat*ett11;
+        %%%%Update Step%%%%
+        ett11=ett10.*[neta1;neta2]; %joint density F(Y,S)
+        fit=sum(ett11);           %Marginal density F(Y)
+        ett11=(ett11)/fit;    %conditional density F(S\Y) the weights of the likelihood
+        filter(j,1:2)=ett11';      %save filter probability ett  
+        lik=lik+log(fit);      %save log likelihood
+        
+    end  
+   
+   
+   
+ check=-1;
+ while check<0
+   %backward recursion to sample from H(S[t]\S[t+1],y)
+   S=zeros(T,1);
+   %time T
+   p1=filter(T,1);
+   p2=filter(T,2);
+   p=p1/(p1+p2);
+   u=rand(1,1);
+   S(T,1)=(u>=p);
+  
+   for t=T-1:-1:1
+          pmat=[pp(t+1) 1-qq(t+1); %TVP transition prob
+      1-pp(t+1) qq(t+1)];
+   if S(t+1)==0
+p00=pmat(1,1)*filter(t,1);
+p01=pmat(1,2)*filter(t,2);
+elseif S(t+1)==1
+p00=pmat(2,1)*filter(t,1);
+p01=pmat(2,2)*filter(t,2);
+   end
+  u=rand(1,1);
+  p=p00/(p00+p01);
+  if u<p
+      S(t)=0;
+  else
+      S(t)=1;
+  end
+   end
+   
+if sum(S==0)>=ncrit && sum(S==1)>=ncrit
+    check=1;
+end
+ end
+ 
+ 
+ %step 2 sample the transition Probabilties
+    
+   %step 2a Sample sstar
+sstar=zeros(T,1);
+Slag=lag0(S,1);
+Slag(1)=Slag(2);
+zall=[ones(T,1) z Slag];
+mm=zall*gamma;
+for t=1:T
+          
+if S(t)==1
+sstar(t)= normlt_rnd(mm(t),1,0);%draw from left truncated normal N(mm,1)
+elseif S(t)==0;
+sstar(t)= normrt_rnd(mm(t),1,0); %draw from right truncated normal N(mm,1)
+end
+
+end
+
+  %step 2 b Calculate pp,qq
+  pp=normcdf(-zall(:,1:end-1)*gamma(1:end-1));
+  qq=1-normcdf(-zall(:,1:end-1)*gamma(1:end-1)-gamma(end));
+  
+  %step 2c Sample gamma
+  yy=sstar;
+  xx=zall;
+  V=inv(inv(SGAMMA0)+(xx'*xx));
+   M=V*(inv(SGAMMA0)*GAMMA00+xx'*yy); 
+   gamma=M+(randn(1,3)*chol(V))';
+    
+    %step 3 sample beta
+    % Select data in regime 1
+    id=find(S==0);
+    y1=y(id);
+    x1=x(id,:);
+    M=inv(inv(Sigma0)+(1/sig1)*(x1'*x1))*(inv(Sigma0)*B0+(1/sig1)*x1'*y1); 
+    V=inv(inv(Sigma0)+(1/sig1)*(x1'*x1));
+    phi1=M+(randn(1,2)*chol(V))';
+    %Select data in regime 2
+    id=find(S==1);
+    y2=y(id);
+    x2=x(id,:);
+    M=inv(inv(Sigma0)+(1/sig2)*(x2'*x2))*(inv(Sigma0)*B0+(1/sig2)*x2'*y2); 
+    V=inv(inv(Sigma0)+(1/sig2)*(x2'*x2));
+    phi2=M+(randn(1,2)*chol(V))';
+    
+    
+    %step 4 sample sigma
+    
+    %residuals regime 1
+    e1=y1-x1*phi1;
+    T1=v0+rows(e1);
+    D1=d0+e1'*e1;
+    %draw from IG
+   z0=randn(T1,1);
+    z0z0=z0'*z0;
+   sig1=D1/z0z0;
+   %residuals regime 2
+    e2=y2-x2*phi2;
+    T2=v0+rows(e2);
+    D2=d0+e2'*e2;
+    %draw from IG
+   z0=randn(T2,1);
+    z0z0=z0'*z0;
+   sig2=D2/z0z0;
+   
+   
+   
+   %save and impose regime identification
+   if igibbs>BURN
+       chck=phi1(2,1)>phi2(2,1); %constant bigger in regime 1
+       if chck
+           out1=[out1;([phi1' phi2'])];
+           out2=[out2;([sig1 sig2 ])];
+           out3=[out3;S'];
+           out4=[out4;pp'];
+           out5=[out5;qq'];
+           out6=[out6;gamma'];
+           out7=[out7;sstar'];
+           count=count+1;
+       end
+    
+   end
+   igibbs=igibbs+1;
+     disp(sprintf(' Replication %s , %s Saved Draws %s. ', ... 
+             num2str(igibbs), num2str(count) ));
+
+end
+  
+figure(1)
+subplot(8,2,1);
+hist(out1(:,1),50);
+vline(B1)
+title('Coefficient regime 1');
+axis tight
+subplot(8,2,2);
+hist(out1(:,3),50);
+title('Coefficient regime 2');
+vline(B2)
+axis tight
+subplot(8,2,3);
+hist(out1(:,2),50);
+vline(C1)
+title('Intercept regime 1');
+axis tight
+subplot(8,2,4);
+hist(out1(:,4),50);
+title('Intercept regime 2');
+vline(C2)
+axis tight
+subplot(8,2,5);
+hist(out2(:,1),50);
+vline(S1)
+title('\sigma_{1}');
+axis tight
+subplot(8,2,6);
+hist(out2(:,2),50);
+vline(S2)
+title('\sigma_{2}');
+axis tight
+subplot(8,2,7);
+hist(out6(:,1),50);
+title('\gamma_0');
+vline(GAMMA0)
+axis tight
+subplot(8,2,8);
+hist(out6(:,2),50);
+title('\lambda');
+vline(LAMBDA0)
+axis tight
+subplot(8,2,9);
+hist(out6(:,3),50);
+title('\gamma_1');
+vline(GAMMA1)
+axis tight
+
+subplot(8,2,[11 12])
+temp=mean(out3,1);
+plot(temp,'c','LineWidth',2);
+hold on
+plot(strue(:,1),'k','LineWidth',2)
+title('Probability of Regime 1');
+legend('Estimate','True')
+axis tight
+
+subplot(8,2,[13 14])
+temp=mean(out4,1);
+plot(temp,'c','LineWidth',2);
+hold on
+plot(ptrue(:,1),'k','LineWidth',2)
+title('p_00');
+legend('Estimate','True')
+axis tight
+
+subplot(8,2,[15 16])
+temp=mean(out5,1);
+plot(temp,'c','LineWidth',2);
+hold on
+plot(qtrue(:,1),'k','LineWidth',2)
+title('p_11');
+legend('Estimate','True')
+axis tight
+
+
+
+##### SOURCE END #####
+--></body></html>

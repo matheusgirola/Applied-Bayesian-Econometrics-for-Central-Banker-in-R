@@ -1,0 +1,860 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>example7</title><meta name="generator" content="MATLAB 8.6"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2017-06-09"><meta name="DC.source" content="example7.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput">clear;
+addpath(<span class="string">'functions'</span>);
+<span class="comment">%generate artificial data</span>
+T=500;
+B1=0.2;
+B2=0.9;
+C1=1;
+C2=-1;
+S1=10;
+S2=1;
+P=[0.95 0.05;0.05 0.95];
+Q=[0.97 0;0.03 1];
+
+strue=zeros(T,2);
+strue(1,1)=1;
+strue=simS(strue,P);
+vtrue=zeros(T,2);
+vtrue(1,1)=1;
+check=-1;
+<span class="keyword">while</span> check&lt;0
+vtrue=simS(vtrue,Q);
+<span class="keyword">if</span> sum(vtrue(:,1))&gt;20
+    check=1;
+<span class="keyword">end</span>
+<span class="keyword">end</span>
+e=randn(T,1);
+Y=zeros(T,1);
+X=zeros(T,1);
+<span class="keyword">for</span> i=2:T;
+    X(i,:)=Y(i-1,:);
+    <span class="keyword">if</span> strue(i,1)==1
+        <span class="keyword">if</span> vtrue(i,1)==1
+    Y(i)=[X(i,:) 1]*[B1 C1]'+e(i)*sqrt(S1);
+        <span class="keyword">elseif</span> vtrue(i,2)==1
+
+    Y(i)=[X(i,:) 1]*[B1 C1]'+e(i)*sqrt(S2);
+        <span class="keyword">end</span>
+    <span class="keyword">elseif</span> strue(i,2)==1
+   <span class="keyword">if</span> vtrue(i,1)==1
+    Y(i)=[X(i,:) 1]*[B2 C2]'+e(i)*sqrt(S1);
+    <span class="keyword">elseif</span> vtrue(i,2)==1
+    Y(i)=[X(i,:) 1]*[B2 C2]'+e(i)*sqrt(S2);
+   <span class="keyword">end</span>
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+<span class="comment">%data</span>
+y=Y;
+x=[X ones(T,1)];
+
+<span class="comment">%specify starting values</span>
+phi1=[0.5;1];   <span class="comment">%regime 1 coefficients</span>
+phi2=[0.8;-1];   <span class="comment">%regime 2 coefficients</span>
+sig1=3;       <span class="comment">%regime 1 variance</span>
+sig2=1;       <span class="comment">%regime 2 variance</span>
+p=0.95;
+q=0.95;
+px=0.98;
+pmat=[p 1-q;1-p q];
+qmat=[px 0; 1-px 1];
+VV=zeros(T,1);
+ncrit=5; <span class="comment">%each regime should have ncrit obs</span>
+<span class="comment">%set Priors</span>
+
+<span class="comment">%coefficients</span>
+B0=zeros(2,1); <span class="comment">%prior mean</span>
+Sigma0=eye(2); <span class="comment">%prior variance</span>
+
+<span class="comment">%variances</span>
+d0=0.1; <span class="comment">%prior scale</span>
+v0=1;   <span class="comment">%prior df</span>
+
+<span class="comment">%transition probabilities</span>
+u00=25; <span class="comment">%p00~D(u11,u22)</span>
+u01=5;
+u11=25; <span class="comment">%p11~D(u22,u21)</span>
+u10=5;
+
+v00=25; <span class="comment">%q00~D(v00,v01)</span>
+v01=5;
+
+out1=[];  <span class="comment">%save coefficients</span>
+out2=[];  <span class="comment">%save variances</span>
+out3=[];  <span class="comment">%save S</span>
+out4=[]; <span class="comment">%save p</span>
+out5=[]; <span class="comment">%save VV</span>
+REPS=10000;
+BURN=5000;
+igibbs=1;
+count=1;
+<span class="keyword">while</span> count&lt;REPS-BURN
+
+<span class="comment">%step 1: sample S[t]</span>
+
+ <span class="comment">%%%%%%%%%%%%%%%%Run Hamilton Filter%%%%%%%%%%%%%%%%</span>
+   <span class="comment">%unconditional probabilities</span>
+
+A = [(eye(2)-pmat);ones(1,2)];
+           EN=[0;0;1];
+           ett11= pinv(A'*A)*A'*EN;
+
+    lik=0;
+    filter=zeros(T,2);
+    <span class="keyword">for</span> j=1:T
+        <span class="keyword">if</span> VV(j)==0
+    iS1=1/sig1;
+    iS2=1/sig1;
+    dsig1=sqrt(sig1);
+    dsig2=sqrt(sig1);
+        <span class="keyword">else</span>
+         iS1=1/sig2;
+    iS2=1/sig2;
+    dsig1=sqrt(sig2);
+    dsig2=sqrt(sig2);
+        <span class="keyword">end</span>
+        em1=y(j)-x(j,:)*phi1;
+        em2=y(j)-x(j,:)*phi2;
+        neta1=(1/dsig1)*exp(-0.5*(em1*iS1*em1'));<span class="comment">%F(Y\S=0)</span>
+        neta2=(1/dsig2)*exp(-0.5*(em2*iS2*em2'));<span class="comment">%F(Y\S=1)</span>
+        <span class="comment">%%%Prediction Step%%%%</span>
+        ett10=pmat*ett11;
+        <span class="comment">%%%%Update Step%%%%</span>
+        ett11=ett10.*[neta1;neta2]; <span class="comment">%joint density F(Y,S)</span>
+        fit=sum(ett11);           <span class="comment">%Marginal density F(Y)</span>
+        ett11=(ett11)/fit;    <span class="comment">%conditional density F(S\Y) the weights of the likelihood</span>
+        filter(j,1:2)=ett11';      <span class="comment">%save filter probability ett</span>
+        lik=lik+log(fit);      <span class="comment">%save log likelihood</span>
+
+    <span class="keyword">end</span>
+
+
+
+ check=-1;
+ <span class="keyword">while</span> check&lt;0
+   <span class="comment">%backward recursion to sample from H(S[t]\S[t+1],y)</span>
+   S=zeros(T,1);
+   <span class="comment">%time T</span>
+   p1=filter(T,1);
+   p2=filter(T,2);
+   p=p1/(p1+p2);
+   u=rand(1,1);
+   S(T,1)=(u&gt;=p);
+
+   <span class="keyword">for</span> t=T-1:-1:1
+   <span class="keyword">if</span> S(t+1)==0
+p00=pmat(1,1)*filter(t,1);
+p01=pmat(1,2)*filter(t,2);
+<span class="keyword">elseif</span> S(t+1)==1
+p00=pmat(2,1)*filter(t,1);
+p01=pmat(2,2)*filter(t,2);
+   <span class="keyword">end</span>
+  u=rand(1,1);
+  p=p00/(p00+p01);
+  <span class="keyword">if</span> u&lt;p
+      S(t)=0;
+  <span class="keyword">else</span>
+      S(t)=1;
+  <span class="keyword">end</span>
+   <span class="keyword">end</span>
+
+<span class="keyword">if</span> sum(S==0)&gt;=ncrit &amp;&amp; sum(S==1)&gt;=ncrit
+    check=1;
+<span class="keyword">end</span>
+ <span class="keyword">end</span>
+
+
+
+
+ <span class="comment">%step 1: sample S[t]</span>
+
+ <span class="comment">%%%%%%%%%%%%%%%%Run Hamilton Filter%%%%%%%%%%%%%%%%</span>
+   <span class="comment">%unconditional probabilities</span>
+
+
+     ett11= [1;0]; <span class="comment">%start in regime 0 by assumption</span>
+    iS1=1/sig1;
+    iS2=1/sig2;
+    dsig1=sqrt(sig1);
+    dsig2=sqrt(sig2);
+
+
+    filterx=zeros(T,2);
+    filterx(1,:)=ett11';
+    <span class="keyword">for</span> j=2:T
+        <span class="keyword">if</span> S(j)==0
+        phi1x=phi1;
+        phi2x=phi1;
+        <span class="keyword">else</span>
+        phi1x=phi2;
+        phi2x=phi2;
+        <span class="keyword">end</span>
+
+        em1=y(j)-x(j,:)*phi1x;
+        em2=y(j)-x(j,:)*phi2x;
+        neta1=(1/dsig1)*exp(-0.5*(em1*iS1*em1'));<span class="comment">%F(Y\S=0)</span>
+        neta2=(1/dsig2)*exp(-0.5*(em2*iS2*em2'));<span class="comment">%F(Y\S=1)</span>
+        <span class="comment">%%%Prediction Step%%%%</span>
+        ett10=qmat*ett11;
+        <span class="comment">%%%%Update Step%%%%</span>
+        ett11=ett10.*[neta1;neta2]; <span class="comment">%joint density F(Y,S)</span>
+        fit=sum(ett11);           <span class="comment">%Marginal density F(Y)</span>
+        ett11=(ett11)/fit;    <span class="comment">%conditional density F(S\Y) the weights of the likelihood</span>
+        filterx(j,1:2)=ett11';      <span class="comment">%save filter probability ett</span>
+
+    <span class="keyword">end</span>
+
+
+
+
+ checkx=-1;
+ <span class="keyword">while</span> checkx&lt;0
+   <span class="comment">%backward recursion to sample from H(S[t]\S[t+1],y)</span>
+   VV=zeros(T,1);
+    <span class="comment">%time T</span>
+   p1=filterx(T,1);
+   p2=filterx(T,2);
+   p=p1/(p1+p2);
+   u=rand(1,1);
+   VV(T,1)=(u&gt;=p);
+   <span class="keyword">for</span> t=T-1:-1:1
+   <span class="keyword">if</span> VV(t+1)==0
+p00=qmat(1,1)*filterx(t,1);
+p01=qmat(1,2)*filterx(t,2);
+<span class="keyword">elseif</span> VV(t+1)==1
+p00=qmat(2,1)*filterx(t,1);
+p01=qmat(2,2)*filterx(t,2);
+   <span class="keyword">end</span>
+  u=rand(1,1);
+  p=p00/(p00+p01);
+  <span class="keyword">if</span> u&lt;p
+      VV(t)=0;
+  <span class="keyword">else</span>
+      VV(t)=1;
+  <span class="keyword">end</span>
+   <span class="keyword">end</span>
+
+<span class="keyword">if</span> sum(VV==0)&gt;=ncrit &amp;&amp; sum(VV==1)&gt;=ncrit
+    checkx=1;
+<span class="keyword">end</span>
+ <span class="keyword">end</span>
+
+
+
+
+ <span class="comment">%step 3 sample the transition matrix P</span>
+
+    tranmat=switchg(S+1,[1;2]); <span class="comment">%calculate the number of regime switches</span>
+    N00=tranmat(1,1); <span class="comment">%S(t-1)=0 S(t)=0</span>
+    N01=tranmat(1,2); <span class="comment">%S(t-1)=0 S(t)=1</span>
+    N10=tranmat(2,1); <span class="comment">%S(t-1)=1 S(t)=0</span>
+    N11=tranmat(2,2); <span class="comment">%S(t-1)=1 S(t)=1</span>
+    <span class="comment">%draw from the dirichlet density</span>
+    p0=drchrnd([N00+u00;N01+u01]);
+    p=p0(1,1); <span class="comment">%p00</span>
+    p0=drchrnd([N10+u10;N11+u11]);
+    q=p0(2,1); <span class="comment">%p11</span>
+    pmat=[p 1-q;1-p q]; <span class="comment">%transition prob matrix</span>
+
+    <span class="comment">%step 4 sample the transition matrix Q</span>
+
+    tranmatx=switchg(VV+1,[1;2]); <span class="comment">%calculate the number of regime switches</span>
+    N00x=tranmat(1,1); <span class="comment">%V(t-1)=0 V(t)=0</span>
+    N01x=tranmat(1,2); <span class="comment">%V(t-1)=0 V(t)=1</span>
+
+    <span class="comment">%draw from the dirichlet density</span>
+    p0=drchrnd([N00x+v00;N01x+v01]);
+    px=p0(1,1); <span class="comment">%p00</span>
+
+    qmat=[px 0;1-px 1]; <span class="comment">%transition prob matrix</span>
+
+
+    <span class="comment">%step 3 sample beta</span>
+    <span class="comment">%calculate time series of sigma[t]</span>
+    sigmat=(VV==0).*sig1+(VV==1).*sig2;
+    sigmat1=sigmat(S==0);
+    sigmat2=sigmat(S==1);
+    <span class="comment">% Select data in regime 1</span>
+    id=find(S==0);
+    y1=y(id)./sqrt(sigmat1); <span class="comment">%remove heteroscedasticity</span>
+    x1=x(id,:)./(repmat(sqrt(sigmat1),1,2));
+    M=inv(inv(Sigma0)+(x1'*x1))*(inv(Sigma0)*B0+x1'*y1);
+    V=inv(inv(Sigma0)+(x1'*x1));
+    phi1=M+(randn(1,2)*chol(V))';
+    <span class="comment">%Select data in regime 2</span>
+    id=find(S==1);
+    y2=y(id)./sqrt(sigmat2);
+    x2=x(id,:)./(repmat(sqrt(sigmat2),1,2));
+    M=inv(inv(Sigma0)+(x2'*x2))*(inv(Sigma0)*B0+x2'*y2);
+    V=inv(inv(Sigma0)+(x2'*x2));
+    phi2=M+(randn(1,2)*chol(V))';
+
+
+    <span class="comment">%step 4 sample sigma</span>
+    residuals=(y-x*phi1).*(S==0)+(y-x*phi2).*(S==1);
+    <span class="comment">%residuals regime 1</span>
+    e1=residuals(VV==0);
+    T1=v0+rows(e1);
+    D1=d0+e1'*e1;
+    <span class="comment">%draw from IG</span>
+   z0=randn(T1,1);
+    z0z0=z0'*z0;
+   sig1=D1/z0z0;
+   <span class="comment">%residuals regime 2</span>
+    e2=residuals(VV==1);
+    T2=v0+rows(e2);
+    D2=d0+e2'*e2;
+    <span class="comment">%draw from IG</span>
+   z0=randn(T2,1);
+    z0z0=z0'*z0;
+   sig2=D2/z0z0;
+
+
+
+   <span class="comment">%save and impose regime identification</span>
+   <span class="keyword">if</span> igibbs&gt;BURN
+       chck=phi1(2,1)&gt;phi2(2,1); <span class="comment">%constant bigger in regime 1</span>
+       <span class="keyword">if</span> chck
+           out1=[out1;([phi1' phi2'])];
+           out2=[out2;([sig1 sig2 ])];
+           out3=[out3;S'];
+           out4=[out4;[p q px]];
+           out5=[out5;VV'];
+           count=count+1;
+       <span class="keyword">end</span>
+
+   <span class="keyword">end</span>
+   igibbs=igibbs+1;
+     disp(sprintf(<span class="string">' Replication %s , %s Saved Draws %s. '</span>, <span class="keyword">...</span>
+             num2str(igibbs), num2str(count) ));
+
+<span class="keyword">end</span>
+
+figure(1)
+subplot(6,2,1);
+hist(out1(:,1),50);
+vline(B1)
+title(<span class="string">'Coefficient regime 1'</span>);
+axis <span class="string">tight</span>
+subplot(6,2,2);
+hist(out1(:,3),50);
+title(<span class="string">'Coefficient regime 2'</span>);
+vline(B2)
+axis <span class="string">tight</span>
+subplot(6,2,3);
+hist(out1(:,2),50);
+vline(C1)
+title(<span class="string">'Intercept regime 1'</span>);
+axis <span class="string">tight</span>
+subplot(6,2,4);
+hist(out1(:,4),50);
+title(<span class="string">'Intercept regime 2'</span>);
+vline(C2)
+axis <span class="string">tight</span>
+subplot(6,2,5);
+hist(out2(:,1),50);
+vline(S1)
+title(<span class="string">'\sigma_{1}'</span>);
+axis <span class="string">tight</span>
+subplot(6,2,6);
+hist(out2(:,2),50);
+vline(S2)
+title(<span class="string">'\sigma_{2}'</span>);
+axis <span class="string">tight</span>
+subplot(6,2,7);
+hist(out4(:,1),50);
+title(<span class="string">'P_{00}'</span>);
+vline(P(1,1))
+axis <span class="string">tight</span>
+subplot(6,2,8);
+hist(out4(:,2),50);
+title(<span class="string">'p_{11}'</span>);
+vline(P(2,2))
+axis <span class="string">tight</span>
+subplot(6,2,9);
+hist(out4(:,3),50);
+title(<span class="string">'q_{00}'</span>);
+vline(Q(1,1))
+axis <span class="string">tight</span>
+subplot(6,2,10)
+temp=mean(out3,1);
+plot(temp,<span class="string">'c'</span>,<span class="string">'LineWidth'</span>,2);
+hold <span class="string">on</span>
+plot(strue(:,2),<span class="string">'k'</span>,<span class="string">'LineWidth'</span>,2)
+title(<span class="string">'Probability of Regime 1'</span>);
+legend(<span class="string">'Estimate'</span>,<span class="string">'True'</span>)
+axis <span class="string">tight</span>
+subplot(6,2,11)
+temp=mean(out5,1);
+plot(temp,<span class="string">'c'</span>,<span class="string">'LineWidth'</span>,2);
+hold <span class="string">on</span>
+plot(vtrue(:,2),<span class="string">'k'</span>,<span class="string">'LineWidth'</span>,2)
+title(<span class="string">'Probability of Regime 1 (Variance)'</span>);
+legend(<span class="string">'Estimate'</span>,<span class="string">'True'</span>)
+axis <span class="string">tight</span>
+</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2015b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+clear;
+addpath('functions');
+%generate artificial data
+T=500;
+B1=0.2;
+B2=0.9;
+C1=1;
+C2=-1;
+S1=10;
+S2=1;
+P=[0.95 0.05;0.05 0.95];
+Q=[0.97 0;0.03 1];
+
+strue=zeros(T,2);
+strue(1,1)=1;
+strue=simS(strue,P);
+vtrue=zeros(T,2);
+vtrue(1,1)=1;
+check=-1;
+while check<0
+vtrue=simS(vtrue,Q);
+if sum(vtrue(:,1))>20
+    check=1;
+end
+end
+e=randn(T,1);
+Y=zeros(T,1);
+X=zeros(T,1);
+for i=2:T;
+    X(i,:)=Y(i-1,:);
+    if strue(i,1)==1 
+        if vtrue(i,1)==1
+    Y(i)=[X(i,:) 1]*[B1 C1]'+e(i)*sqrt(S1);
+        elseif vtrue(i,2)==1
+  
+    Y(i)=[X(i,:) 1]*[B1 C1]'+e(i)*sqrt(S2);
+        end
+    elseif strue(i,2)==1
+   if vtrue(i,1)==1 
+    Y(i)=[X(i,:) 1]*[B2 C2]'+e(i)*sqrt(S1);
+    elseif vtrue(i,2)==1 
+    Y(i)=[X(i,:) 1]*[B2 C2]'+e(i)*sqrt(S2);
+   end
+    end
+end
+%data
+y=Y;
+x=[X ones(T,1)];
+
+%specify starting values
+phi1=[0.5;1];   %regime 1 coefficients
+phi2=[0.8;-1];   %regime 2 coefficients
+sig1=3;       %regime 1 variance
+sig2=1;       %regime 2 variance
+p=0.95;
+q=0.95;
+px=0.98;
+pmat=[p 1-q;1-p q];
+qmat=[px 0; 1-px 1];
+VV=zeros(T,1);
+ncrit=5; %each regime should have ncrit obs
+%set Priors
+
+%coefficients
+B0=zeros(2,1); %prior mean
+Sigma0=eye(2); %prior variance
+
+%variances
+d0=0.1; %prior scale
+v0=1;   %prior df
+
+%transition probabilities
+u00=25; %p00~D(u11,u22)
+u01=5;
+u11=25; %p11~D(u22,u21)
+u10=5;
+
+v00=25; %q00~D(v00,v01)
+v01=5;
+
+out1=[];  %save coefficients
+out2=[];  %save variances
+out3=[];  %save S
+out4=[]; %save p
+out5=[]; %save VV
+REPS=10000;
+BURN=5000;
+igibbs=1;
+count=1;
+while count<REPS-BURN
+
+%step 1: sample S[t]
+
+ %%%%%%%%%%%%%%%%Run Hamilton Filter%%%%%%%%%%%%%%%%
+   %unconditional probabilities
+
+A = [(eye(2)-pmat);ones(1,2)];
+           EN=[0;0;1];
+           ett11= pinv(A'*A)*A'*EN;
+  
+    lik=0;
+    filter=zeros(T,2);
+    for j=1:T
+        if VV(j)==0
+    iS1=1/sig1;
+    iS2=1/sig1;
+    dsig1=sqrt(sig1);
+    dsig2=sqrt(sig1);
+        else
+         iS1=1/sig2;
+    iS2=1/sig2;
+    dsig1=sqrt(sig2);
+    dsig2=sqrt(sig2);
+        end
+        em1=y(j)-x(j,:)*phi1; 
+        em2=y(j)-x(j,:)*phi2; 
+        neta1=(1/dsig1)*exp(-0.5*(em1*iS1*em1'));%F(Y\S=0)
+        neta2=(1/dsig2)*exp(-0.5*(em2*iS2*em2'));%F(Y\S=1)
+        %%%Prediction Step%%%%
+        ett10=pmat*ett11;
+        %%%%Update Step%%%%
+        ett11=ett10.*[neta1;neta2]; %joint density F(Y,S)
+        fit=sum(ett11);           %Marginal density F(Y)
+        ett11=(ett11)/fit;    %conditional density F(S\Y) the weights of the likelihood
+        filter(j,1:2)=ett11';      %save filter probability ett  
+        lik=lik+log(fit);      %save log likelihood
+        
+    end  
+   
+   
+   
+ check=-1;
+ while check<0
+   %backward recursion to sample from H(S[t]\S[t+1],y)
+   S=zeros(T,1);
+   %time T
+   p1=filter(T,1);
+   p2=filter(T,2);
+   p=p1/(p1+p2);
+   u=rand(1,1);
+   S(T,1)=(u>=p);
+  
+   for t=T-1:-1:1
+   if S(t+1)==0
+p00=pmat(1,1)*filter(t,1);
+p01=pmat(1,2)*filter(t,2);
+elseif S(t+1)==1
+p00=pmat(2,1)*filter(t,1);
+p01=pmat(2,2)*filter(t,2);
+   end
+  u=rand(1,1);
+  p=p00/(p00+p01);
+  if u<p
+      S(t)=0;
+  else
+      S(t)=1;
+  end
+   end
+   
+if sum(S==0)>=ncrit && sum(S==1)>=ncrit
+    check=1;
+end
+ end
+ 
+ 
+ 
+ 
+ %step 1: sample S[t]
+
+ %%%%%%%%%%%%%%%%Run Hamilton Filter%%%%%%%%%%%%%%%%
+   %unconditional probabilities
+
+
+     ett11= [1;0]; %start in regime 0 by assumption
+    iS1=1/sig1;
+    iS2=1/sig2;
+    dsig1=sqrt(sig1);
+    dsig2=sqrt(sig2);
+  
+    
+    filterx=zeros(T,2);
+    filterx(1,:)=ett11';
+    for j=2:T
+        if S(j)==0
+        phi1x=phi1;
+        phi2x=phi1;
+        else
+        phi1x=phi2;
+        phi2x=phi2; 
+        end
+      
+        em1=y(j)-x(j,:)*phi1x; 
+        em2=y(j)-x(j,:)*phi2x; 
+        neta1=(1/dsig1)*exp(-0.5*(em1*iS1*em1'));%F(Y\S=0)
+        neta2=(1/dsig2)*exp(-0.5*(em2*iS2*em2'));%F(Y\S=1)
+        %%%Prediction Step%%%%
+        ett10=qmat*ett11;
+        %%%%Update Step%%%%
+        ett11=ett10.*[neta1;neta2]; %joint density F(Y,S)
+        fit=sum(ett11);           %Marginal density F(Y)
+        ett11=(ett11)/fit;    %conditional density F(S\Y) the weights of the likelihood
+        filterx(j,1:2)=ett11';      %save filter probability ett  
+        
+    end  
+   
+   
+   
+   
+ checkx=-1;
+ while checkx<0
+   %backward recursion to sample from H(S[t]\S[t+1],y)
+   VV=zeros(T,1);
+    %time T
+   p1=filterx(T,1);
+   p2=filterx(T,2);
+   p=p1/(p1+p2);
+   u=rand(1,1);
+   VV(T,1)=(u>=p);
+   for t=T-1:-1:1
+   if VV(t+1)==0
+p00=qmat(1,1)*filterx(t,1);
+p01=qmat(1,2)*filterx(t,2);
+elseif VV(t+1)==1
+p00=qmat(2,1)*filterx(t,1);
+p01=qmat(2,2)*filterx(t,2);
+   end
+  u=rand(1,1);
+  p=p00/(p00+p01);
+  if u<p
+      VV(t)=0;
+  else
+      VV(t)=1;
+  end
+   end
+   
+if sum(VV==0)>=ncrit && sum(VV==1)>=ncrit
+    checkx=1;
+end
+ end
+ 
+
+ 
+ 
+ %step 3 sample the transition matrix P
+    
+    tranmat=switchg(S+1,[1;2]); %calculate the number of regime switches
+    N00=tranmat(1,1); %S(t-1)=0 S(t)=0
+    N01=tranmat(1,2); %S(t-1)=0 S(t)=1
+    N10=tranmat(2,1); %S(t-1)=1 S(t)=0
+    N11=tranmat(2,2); %S(t-1)=1 S(t)=1
+    %draw from the dirichlet density
+    p0=drchrnd([N00+u00;N01+u01]);
+    p=p0(1,1); %p00
+    p0=drchrnd([N10+u10;N11+u11]);
+    q=p0(2,1); %p11
+    pmat=[p 1-q;1-p q]; %transition prob matrix
+    
+    %step 4 sample the transition matrix Q
+    
+    tranmatx=switchg(VV+1,[1;2]); %calculate the number of regime switches
+    N00x=tranmat(1,1); %V(t-1)=0 V(t)=0
+    N01x=tranmat(1,2); %V(t-1)=0 V(t)=1
+   
+    %draw from the dirichlet density
+    p0=drchrnd([N00x+v00;N01x+v01]);
+    px=p0(1,1); %p00
+  
+    qmat=[px 0;1-px 1]; %transition prob matrix
+
+    
+    %step 3 sample beta
+    %calculate time series of sigma[t]
+    sigmat=(VV==0).*sig1+(VV==1).*sig2;
+    sigmat1=sigmat(S==0);
+    sigmat2=sigmat(S==1);
+    % Select data in regime 1
+    id=find(S==0);
+    y1=y(id)./sqrt(sigmat1); %remove heteroscedasticity
+    x1=x(id,:)./(repmat(sqrt(sigmat1),1,2));
+    M=inv(inv(Sigma0)+(x1'*x1))*(inv(Sigma0)*B0+x1'*y1); 
+    V=inv(inv(Sigma0)+(x1'*x1));
+    phi1=M+(randn(1,2)*chol(V))';
+    %Select data in regime 2
+    id=find(S==1);
+    y2=y(id)./sqrt(sigmat2);
+    x2=x(id,:)./(repmat(sqrt(sigmat2),1,2));
+    M=inv(inv(Sigma0)+(x2'*x2))*(inv(Sigma0)*B0+x2'*y2); 
+    V=inv(inv(Sigma0)+(x2'*x2));
+    phi2=M+(randn(1,2)*chol(V))';
+    
+    
+    %step 4 sample sigma
+    residuals=(y-x*phi1).*(S==0)+(y-x*phi2).*(S==1);
+    %residuals regime 1
+    e1=residuals(VV==0);
+    T1=v0+rows(e1);
+    D1=d0+e1'*e1;
+    %draw from IG
+   z0=randn(T1,1);
+    z0z0=z0'*z0;
+   sig1=D1/z0z0;
+   %residuals regime 2
+    e2=residuals(VV==1);
+    T2=v0+rows(e2);
+    D2=d0+e2'*e2;
+    %draw from IG
+   z0=randn(T2,1);
+    z0z0=z0'*z0;
+   sig2=D2/z0z0;
+   
+   
+   
+   %save and impose regime identification
+   if igibbs>BURN
+       chck=phi1(2,1)>phi2(2,1); %constant bigger in regime 1
+       if chck
+           out1=[out1;([phi1' phi2'])];
+           out2=[out2;([sig1 sig2 ])];
+           out3=[out3;S'];
+           out4=[out4;[p q px]];
+           out5=[out5;VV'];
+           count=count+1;
+       end
+    
+   end
+   igibbs=igibbs+1;
+     disp(sprintf(' Replication %s , %s Saved Draws %s. ', ... 
+             num2str(igibbs), num2str(count) ));
+
+end
+  
+figure(1)
+subplot(6,2,1);
+hist(out1(:,1),50);
+vline(B1)
+title('Coefficient regime 1');
+axis tight
+subplot(6,2,2);
+hist(out1(:,3),50);
+title('Coefficient regime 2');
+vline(B2)
+axis tight
+subplot(6,2,3);
+hist(out1(:,2),50);
+vline(C1)
+title('Intercept regime 1');
+axis tight
+subplot(6,2,4);
+hist(out1(:,4),50);
+title('Intercept regime 2');
+vline(C2)
+axis tight
+subplot(6,2,5);
+hist(out2(:,1),50);
+vline(S1)
+title('\sigma_{1}');
+axis tight
+subplot(6,2,6);
+hist(out2(:,2),50);
+vline(S2)
+title('\sigma_{2}');
+axis tight
+subplot(6,2,7);
+hist(out4(:,1),50);
+title('P_{00}');
+vline(P(1,1))
+axis tight
+subplot(6,2,8);
+hist(out4(:,2),50);
+title('p_{11}');
+vline(P(2,2))
+axis tight
+subplot(6,2,9);
+hist(out4(:,3),50);
+title('q_{00}');
+vline(Q(1,1))
+axis tight
+subplot(6,2,10)
+temp=mean(out3,1);
+plot(temp,'c','LineWidth',2);
+hold on
+plot(strue(:,2),'k','LineWidth',2)
+title('Probability of Regime 1');
+legend('Estimate','True')
+axis tight
+subplot(6,2,11)
+temp=mean(out5,1);
+plot(temp,'c','LineWidth',2);
+hold on
+plot(vtrue(:,2),'k','LineWidth',2)
+title('Probability of Regime 1 (Variance)');
+legend('Estimate','True')
+axis tight
+
+
+##### SOURCE END #####
+--></body></html>
